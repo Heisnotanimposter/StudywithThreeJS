@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<meta charset="utf-8">
+		<title>ThreeJSProgram-01</title>
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+		<style>
+			body { 
+				margin: 0; 
+				overflow: hidden;
+			}
+		</style>
+	</head>
+
+
+//HTML part
+
+
+	<body>
+		<script>
+            // 장면(scene) 생성
+            const scene = new THREE.Scene();
+
+            // 카메라(camera) 생성 - 시야각 75도, 화면 비율, 가깝고 먼 클리핑 거리 설정
+            var camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
+            camera.position.set(-200, 150, 200);
+            camera.lookAt(0, 0, 0);
+
+            // 렌더러(renderer) 생성 및 크기 설정
+            const renderer = new THREE.WebGLRenderer();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            document.body.appendChild(renderer.domElement);
+
+            // 태양(sun) 생성
+            const sun_geometry = new THREE.SphereGeometry(15, 32, 16);
+            const sun_material = new THREE.MeshPhongMaterial({ color: 0xff7700 });
+            const sun = new THREE.Mesh(sun_geometry, sun_material);
+            scene.add(sun);
+
+            // 큐브(cube) 생성
+            var cubeGeometry = new THREE.BoxGeometry(5, 5, 5);
+            var cubeMaterial = new THREE.MeshLambertMaterial({ color: 0x00FF72 });
+            var cube = new THREE.Mesh(cubeGeometry, cubeMaterial);
+            scene.add(cube);
+
+            // 조명 추가 (PhongMaterial은 조명이 필요함)
+            const light = new THREE.PointLight(0xffffff, 1, 100);
+            light.position.set(50, 50, 50);
+            scene.add(light);
+
+            // 배경광 추가 (전반적인 조명 보강)
+            const ambientLight = new THREE.AmbientLight(0x404040); // 은은한 조명
+            scene.add(ambientLight);
+
+            // 궤도 회전 각도 설정
+            let angle = 15;
+            const radius = 160;  // 태양을 중심으로 큐브가 회전할 거리(반지름)
+
+            // 애니메이션 함수
+            function animate() {
+                requestAnimationFrame(animate);
+
+                // 태양 자체 회전
+                sun.rotation.y += 0.01;
+
+                // 큐브의 위치를 태양을 중심으로 원형 궤도 회전시키기
+                angle += 0.01;  // 각도를 조금씩 증가시켜 회전
+                cube.position.x = sun.position.x + radius * Math.cos(angle);  // X 좌표 갱신
+                cube.position.z = sun.position.z + radius * Math.sin(angle);  // Z 좌표 갱신
+
+                // 렌더링
+                renderer.render(scene, camera);
+            }
+
+            animate();  // 애니메이션 시작
+		</script>
+	</body>
+</html>
+
+//JSpart
