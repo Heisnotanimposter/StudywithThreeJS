@@ -2,9 +2,8 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, height=device-height, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <meta http-equiv="X-UA-Compatible" content="ie=edge">
-    <title>Humanoid with Walking, Arm Movement, and Physics</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Humanoid with Walking, Arm Movement, and Three.js</title>
     <style>
         body { margin: 0; overflow: hidden; }
         canvas { display: block; }
@@ -14,53 +13,43 @@
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/dat.gui/build/dat.gui.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/cannon-es/0.18.0/cannon-es.js"></script>
 
     <script>
-        // Basic Three.js setup
+        // Basic Three.js Setup
         const scene = new THREE.Scene();
         const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
         const renderer = new THREE.WebGLRenderer({ antialias: true });
         renderer.setSize(window.innerWidth, window.innerHeight);
         document.body.appendChild(renderer.domElement);
 
-        // Add lighting
+        // Lighting
         const light = new THREE.DirectionalLight(0xffffff, 1);
         light.position.set(5, 5, 5);
         scene.add(light);
-
         const ambientLight = new THREE.AmbientLight(0x404040);
         scene.add(ambientLight);
 
-        // Add a grid helper to see where the floor is (optional)
-        const gridHelper = new THREE.GridHelper(10, 10);
-        scene.add(gridHelper);
-
-        // Physics setup (using Cannon.js)
-        const world = new CANNON.World();
-        world.gravity.set(0, -9.82, 0); // Earth gravity in m/s²
-
-        // Function to create Box
-        function createBox(w, h, d, color) {
-            const geometry = new THREE.BoxGeometry(w, h, d);
+        // Create function to add boxes representing different body parts
+        function createBox(width, height, depth, color) {
+            const geometry = new THREE.BoxGeometry(width, height, depth);
             const material = new THREE.MeshPhongMaterial({ color });
             return new THREE.Mesh(geometry, material);
         }
 
-        // Create humanoid group
+        // Create a humanoid group
         const humanoid = new THREE.Group();
 
-        // Create Torso
+        // Create Torso and Add to Humanoid
         const torso = createBox(1.5, 3, 1, 0x3498db);
-        torso.position.y = 0;
+        torso.position.set(0, 0, 0);
         humanoid.add(torso);
 
-        // Create Head
+        // Create Head and Add to Humanoid
         const head = createBox(1, 1.5, 1, 0xffe0bd);
         head.position.set(0, 2.5, 0);
         humanoid.add(head);
 
-        // Add Arms (with elbow joint)
+        // Add Arms with Elbow Joint Control
         function createArm(side) {
             const upperArm = createBox(0.3, 1.5, 0.3, 0x3498db);
             const lowerArm = createBox(0.2, 1.5, 0.2, 0x3498db);
@@ -68,29 +57,27 @@
 
             if (side === 'left') {
                 upperArm.position.set(-1.2, 1, 0);
-                lowerArm.position.set(-2.2, 1, 0);
-                hand.position.set(-2.7, 1, 0);
+                lowerArm.position.set(-2.2, 0, 0);
+                hand.position.set(-2.7, -1, 0);
             } else {
                 upperArm.position.set(1.2, 1, 0);
-                lowerArm.position.set(2.2, 1, 0);
-                hand.position.set(2.7, 1, 0);
+                lowerArm.position.set(2.2, 0, 0);
+                hand.position.set(2.7, -1, 0);
             }
 
             humanoid.add(upperArm, lowerArm, hand);
 
+            // Elbow Joint Control using dat.GUI
             const gui = new dat.GUI();
-            const elbowRotation = { x: 0 };
-            const armFolder = gui.addFolder(`Arm Rotation (${side})`);
-            armFolder.add(elbowRotation, 'x', -Math.PI / 2, Math.PI / 2).onChange(value => {
-                lowerArm.rotation.x = value;
-            });
+            const armFolder = gui.addFolder(`Elbow Control (${side})`);
+            armFolder.add(lowerArm.rotation, 'x', -Math.PI / 2, Math.PI / 2).name("Elbow Rotation");
             armFolder.open();
         }
 
         createArm('left');
         createArm('right');
 
-        // Add Legs (with knee joint)
+        // Add Legs with Knee Joint Control
         function createLeg(side) {
             const upperLeg = createBox(0.35, 2, 0.35, 0x34495e);
             const lowerLeg = createBox(0.3, 2, 0.3, 0x34495e);
@@ -98,47 +85,46 @@
 
             if (side === 'left') {
                 upperLeg.position.set(-0.5, -2.5, 0);
-                lowerLeg.position.set(-0.5, -4.8, 0);
-                foot.position.set(-0.5, -6, 0.3);
+                lowerLeg.position.set(-0.5, -4.5, 0);
+                foot.position.set(-0.5, -5.8, 0.3);
             } else {
                 upperLeg.position.set(0.5, -2.5, 0);
-                lowerLeg.position.set(0.5, -4.8, 0);
-                foot.position.set(0.5, -6, 0.3);
+                lowerLeg.position.set(0.5, -4.5, 0);
+                foot.position.set(0.5, -5.8, 0.3);
             }
 
             humanoid.add(upperLeg, lowerLeg, foot);
 
+            // Knee Joint Control using dat.GUI
             const gui = new dat.GUI();
-            const kneeRotation = { x: 0 };
-            const legFolder = gui.addFolder(`Knee Rotation (${side})`);
-            legFolder.add(kneeRotation, 'x', -Math.PI / 2, Math.PI / 2).onChange(value => {
-                lowerLeg.rotation.x = value;
-            });
+            const legFolder = gui.addFolder(`Knee Control (${side})`);
+            legFolder.add(lowerLeg.rotation, 'x', -Math.PI / 2, Math.PI / 2).name("Knee Rotation");
             legFolder.open();
         }
 
         createLeg('left');
         createLeg('right');
 
-        // Add physics constraints using Cannon.js for real-world interactions
-        const torsoShape = new CANNON.Box(new CANNON.Vec3(0.75, 1.5, 0.5));
-        const torsoBody = new CANNON.Body({ mass: 1 });
-        torsoBody.addShape(torsoShape);
-        torsoBody.position.set(0, 0, 0);
-        world.addBody(torsoBody);
-
+        // Adding Humanoid to Scene
         scene.add(humanoid);
 
-        // Position camera to better view the humanoid
-        camera.position.set(0, 6, 12);  // Adjust the camera height and distance
-        camera.lookAt(new THREE.Vector3(0, 0, 0));  // Ensure the camera is looking at the humanoid
+        // Positioning Camera
+        camera.position.set(0, 5, 15);
+        camera.lookAt(scene.position);
 
-        // Animate the scene
+        // Walking animation (simple rotation)
+        function walk() {
+            humanoid.rotation.y += 0.01;
+        }
+
+        // Animation Loop
         function animate() {
             requestAnimationFrame(animate);
+            walk();  // Call walking function
             renderer.render(scene, camera);
         }
 
+        // Start Animation
         animate();
 
     </script>
