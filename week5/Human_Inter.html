@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Humanoid with Advanced Walking, Hand Gestures, and Collision Detection</title>
+    <title>Refined Humanoid with Walking Animation and Collision Detection</title>
     <style>
         body { margin: 0; overflow: hidden; }
         canvas { display: block; }
@@ -49,71 +49,61 @@
         head.position.set(0, 2.5, 0);
         humanoid.add(head);
 
-        // Add Fingers to Hands (controlled by dat.GUI)
-        function createFingers(hand) {
-            for (let i = 0; i < 5; i++) {
-                const finger = createBox(0.1, 0.4, 0.1, 0xffe0bd);
-                finger.position.set(0.2 * i - 0.5, -0.2, 0);
-                hand.add(finger);
-            }
-        }
-
-        // Add Arms with Elbow Joint Control and Hand Articulation
+        // Function to add arms and legs
         function createArm(side) {
             const upperArm = createBox(0.3, 1.5, 0.3, 0x3498db);
             const lowerArm = createBox(0.2, 1.5, 0.2, 0x3498db);
             const hand = createBox(0.4, 0.4, 0.4, 0xffe0bd);
 
+            const armGroup = new THREE.Group();
+
             if (side === 'left') {
-                upperArm.position.set(-1.2, 1, 0);
-                lowerArm.position.set(-2.2, 0, 0);
-                hand.position.set(-2.7, -1, 0);
+                armGroup.position.set(-1.2, 1, 0);
             } else {
-                upperArm.position.set(1.2, 1, 0);
-                lowerArm.position.set(2.2, 0, 0);
-                hand.position.set(2.7, -1, 0);
+                armGroup.position.set(1.2, 1, 0);
             }
 
-            humanoid.add(upperArm, lowerArm, hand);
-            createFingers(hand);  // Add fingers to the hand
+            lowerArm.position.set(0, -1.5, 0);
+            hand.position.set(0, -3, 0);
 
-            // Elbow Joint Control using dat.GUI
-            const gui = new dat.GUI();
-            const armFolder = gui.addFolder(`Elbow Control (${side})`);
-            armFolder.add(lowerArm.rotation, 'x', -Math.PI / 2, Math.PI / 2).name("Elbow Rotation");
-            armFolder.open();
+            armGroup.add(upperArm);
+            upperArm.add(lowerArm);
+            lowerArm.add(hand);
+
+            humanoid.add(armGroup);
+
+            return { upperArm, lowerArm, hand };
         }
 
-        createArm('left');
-        createArm('right');
-
-        // Add Legs with Knee Joint Control
         function createLeg(side) {
             const upperLeg = createBox(0.35, 2, 0.35, 0x34495e);
             const lowerLeg = createBox(0.3, 2, 0.3, 0x34495e);
             const foot = createBox(0.7, 0.3, 1, 0xffe0bd);
 
+            const legGroup = new THREE.Group();
+
             if (side === 'left') {
-                upperLeg.position.set(-0.5, -2.5, 0);
-                lowerLeg.position.set(-0.5, -4.5, 0);
-                foot.position.set(-0.5, -5.8, 0.3);
+                legGroup.position.set(-0.5, -2.5, 0);
             } else {
-                upperLeg.position.set(0.5, -2.5, 0);
-                lowerLeg.position.set(0.5, -4.5, 0);
-                foot.position.set(0.5, -5.8, 0.3);
+                legGroup.position.set(0.5, -2.5, 0);
             }
 
-            humanoid.add(upperLeg, lowerLeg, foot);
+            lowerLeg.position.set(0, -2, 0);
+            foot.position.set(0, -4, 0.3);
 
-            // Knee Joint Control using dat.GUI
-            const gui = new dat.GUI();
-            const legFolder = gui.addFolder(`Knee Control (${side})`);
-            legFolder.add(lowerLeg.rotation, 'x', -Math.PI / 2, Math.PI / 2).name("Knee Rotation");
-            legFolder.open();
+            legGroup.add(upperLeg);
+            upperLeg.add(lowerLeg);
+            lowerLeg.add(foot);
+
+            humanoid.add(legGroup);
+
+            return { upperLeg, lowerLeg, foot };
         }
 
-        createLeg('left');
-        createLeg('right');
+        const leftArm = createArm('left');
+        const rightArm = createArm('right');
+        const leftLeg = createLeg('left');
+        const rightLeg = createLeg('right');
 
         // Adding Humanoid to Scene
         scene.add(humanoid);
@@ -122,66 +112,55 @@
         camera.position.set(0, 5, 15);
         camera.lookAt(scene.position);
 
-        // Refined Walking Animation
-        let walkSpeed = 0.05;
-        let oscillationSpeed = 0.05;
-        function walk() {
-            humanoid.position.z -= walkSpeed;
+        // Walking Animation Refinement
+        let clock = new THREE.Clock();
+        function updateWalking() {
+            const time = clock.getElapsedTime();
+            const armSwing = Math.sin(time * 3) * Math.PI / 6;  // Refined speed and amplitude
+            const legSwing = Math.sin(time * 3) * Math.PI / 6;
 
-            // Synchronized leg and arm movement
-            humanoid.children.forEach(part => {
-                if (part.geometry && part.geometry.type === 'BoxGeometry') {
-                    if (part.position.x < 0) {
-                        part.rotation.x = Math.sin(Date.now() * oscillationSpeed) * 0.3; // Left limbs
-                    } else {
-                        part.rotation.x = Math.cos(Date.now() * oscillationSpeed) * 0.3; // Right limbs
-                    }
-                }
-            });
+            leftArm.upperArm.rotation.x = armSwing;
+            rightArm.upperArm.rotation.x = -armSwing;
+            leftLeg.upperLeg.rotation.x = legSwing;
+            rightLeg.upperLeg.rotation.x = -legSwing;
+
+            // Body bobbing for natural walking effect
+            humanoid.position.y = Math.sin(time * 3) * 0.1;
         }
 
-        // Head Rotation Control with dat.GUI
-        const gui = new dat.GUI();
-        const headRotation = { y: 0 };
-        gui.add(headRotation, 'y', -Math.PI / 2, Math.PI / 2).onChange(value => {
-            head.rotation.y = value;
-        }).name("Head Rotation");
+        // Collision Detection using Bounding Boxes
+        const obstacles = [];  // Store obstacles
 
-        // Complex Collision Detection (detect collisions with objects in the scene)
-        const ground = createBox(20, 1, 20, 0x8e8e8e);
-        ground.position.set(0, -9, 0);
-        scene.add(ground);
+        function addObstacle() {
+            const obstacle = createBox(2, 2, 2, 0xff0000);
+            obstacle.position.set(0, -2, -5);
+            scene.add(obstacle);
+            obstacles.push(obstacle);
+        }
 
-        // Add barriers for collision detection
-        const barrier = createBox(2, 2, 2, 0xff0000);
-        barrier.position.set(0, -1, -10);
-        scene.add(barrier);
+        addObstacle();
 
-        function checkCollision() {
+        function detectCollision() {
             const humanoidBox = new THREE.Box3().setFromObject(humanoid);
-            const groundBox = new THREE.Box3().setFromObject(ground);
-            const barrierBox = new THREE.Box3().setFromObject(barrier);
 
-            if (humanoidBox.intersectsBox(groundBox)) {
-                console.log("Collision with the ground detected!");
-                humanoid.position.z += walkSpeed;
-            }
-            if (humanoidBox.intersectsBox(barrierBox)) {
-                console.log("Collision with the barrier detected!");
-                humanoid.position.z += walkSpeed;
+            for (let obstacle of obstacles) {
+                const obstacleBox = new THREE.Box3().setFromObject(obstacle);
+                if (humanoidBox.intersectsBox(obstacleBox)) {
+                    console.log("Collision Detected!");
+                    // Add behavior on collision (e.g., stop walking, change direction)
+                }
             }
         }
 
-        // Animation Loop
+        // Animate Function
         function animate() {
             requestAnimationFrame(animate);
-            walk();  // Call walking function
-            checkCollision();  // Call collision detection function
+            updateWalking();
+            detectCollision();
             renderer.render(scene, camera);
         }
 
         animate();
-
     </script>
 </body>
 </html>
