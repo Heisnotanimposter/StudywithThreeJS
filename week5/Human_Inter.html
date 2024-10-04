@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Humanoid with Walking, Arm Movement, and Three.js</title>
+    <title>Humanoid with Advanced Walking, Hand Gestures, and Collision Detection</title>
     <style>
         body { margin: 0; overflow: hidden; }
         canvas { display: block; }
@@ -49,7 +49,16 @@
         head.position.set(0, 2.5, 0);
         humanoid.add(head);
 
-        // Add Arms with Elbow Joint Control
+        // Add Fingers to Hands (controlled by dat.GUI)
+        function createFingers(hand) {
+            for (let i = 0; i < 5; i++) {
+                const finger = createBox(0.1, 0.4, 0.1, 0xffe0bd);
+                finger.position.set(0.2 * i - 0.5, -0.2, 0);
+                hand.add(finger);
+            }
+        }
+
+        // Add Arms with Elbow Joint Control and Hand Articulation
         function createArm(side) {
             const upperArm = createBox(0.3, 1.5, 0.3, 0x3498db);
             const lowerArm = createBox(0.2, 1.5, 0.2, 0x3498db);
@@ -66,6 +75,7 @@
             }
 
             humanoid.add(upperArm, lowerArm, hand);
+            createFingers(hand);  // Add fingers to the hand
 
             // Elbow Joint Control using dat.GUI
             const gui = new dat.GUI();
@@ -112,19 +122,64 @@
         camera.position.set(0, 5, 15);
         camera.lookAt(scene.position);
 
-        // Walking animation (simple rotation)
+        // Refined Walking Animation
+        let walkSpeed = 0.05;
+        let oscillationSpeed = 0.05;
         function walk() {
-            humanoid.rotation.y += 0.01;
+            humanoid.position.z -= walkSpeed;
+
+            // Synchronized leg and arm movement
+            humanoid.children.forEach(part => {
+                if (part.geometry && part.geometry.type === 'BoxGeometry') {
+                    if (part.position.x < 0) {
+                        part.rotation.x = Math.sin(Date.now() * oscillationSpeed) * 0.3; // Left limbs
+                    } else {
+                        part.rotation.x = Math.cos(Date.now() * oscillationSpeed) * 0.3; // Right limbs
+                    }
+                }
+            });
+        }
+
+        // Head Rotation Control with dat.GUI
+        const gui = new dat.GUI();
+        const headRotation = { y: 0 };
+        gui.add(headRotation, 'y', -Math.PI / 2, Math.PI / 2).onChange(value => {
+            head.rotation.y = value;
+        }).name("Head Rotation");
+
+        // Complex Collision Detection (detect collisions with objects in the scene)
+        const ground = createBox(20, 1, 20, 0x8e8e8e);
+        ground.position.set(0, -9, 0);
+        scene.add(ground);
+
+        // Add barriers for collision detection
+        const barrier = createBox(2, 2, 2, 0xff0000);
+        barrier.position.set(0, -1, -10);
+        scene.add(barrier);
+
+        function checkCollision() {
+            const humanoidBox = new THREE.Box3().setFromObject(humanoid);
+            const groundBox = new THREE.Box3().setFromObject(ground);
+            const barrierBox = new THREE.Box3().setFromObject(barrier);
+
+            if (humanoidBox.intersectsBox(groundBox)) {
+                console.log("Collision with the ground detected!");
+                humanoid.position.z += walkSpeed;
+            }
+            if (humanoidBox.intersectsBox(barrierBox)) {
+                console.log("Collision with the barrier detected!");
+                humanoid.position.z += walkSpeed;
+            }
         }
 
         // Animation Loop
         function animate() {
             requestAnimationFrame(animate);
             walk();  // Call walking function
+            checkCollision();  // Call collision detection function
             renderer.render(scene, camera);
         }
 
-        // Start Animation
         animate();
 
     </script>
