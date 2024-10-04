@@ -2,195 +2,145 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    
-    <!-- Important meta information to make the page as rigid as possible on mobiles -->
     <meta name="viewport" content="width=device-width, height=device-height, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <meta http-equiv="X-UA-Compatible" content="ie=edge">
-    <title>Character Tutorial</title>
-    
+    <title>Humanoid with Walking, Arm Movement, and Physics</title>
+    <style>
+        body { margin: 0; overflow: hidden; }
+        canvas { display: block; }
+    </style>
 </head>
 <body>
-  
-  <!-- The loading element overlays all else until the model is loaded -->
-  <!-- <div class="loading" id="js-loader"><div class="loader"></div></div> -->
-  
-<div class="wrapper">
-    <!-- The canvas element is used to draw the 3D scene -->
-<canvas id="c"></canvas>
-</div>
 
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/dat.gui/build/dat.gui.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/cannon-es/0.18.0/cannon-es.js"></script>
+
+    <script>
+        // Basic Three.js setup
+        const scene = new THREE.Scene();
+        const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+        const renderer = new THREE.WebGLRenderer({ antialias: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        document.body.appendChild(renderer.domElement);
+
+        // Add lighting
+        const light = new THREE.DirectionalLight(0xffffff, 1);
+        light.position.set(5, 5, 5);
+        scene.add(light);
+
+        const ambientLight = new THREE.AmbientLight(0x404040);
+        scene.add(ambientLight);
+
+        // Add a grid helper to see where the floor is (optional)
+        const gridHelper = new THREE.GridHelper(10, 10);
+        scene.add(gridHelper);
+
+        // Physics setup (using Cannon.js)
+        const world = new CANNON.World();
+        world.gravity.set(0, -9.82, 0); // Earth gravity in m/s²
+
+        // Function to create Box
+        function createBox(w, h, d, color) {
+            const geometry = new THREE.BoxGeometry(w, h, d);
+            const material = new THREE.MeshPhongMaterial({ color });
+            return new THREE.Mesh(geometry, material);
+        }
+
+        // Create humanoid group
+        const humanoid = new THREE.Group();
+
+        // Create Torso
+        const torso = createBox(1.5, 3, 1, 0x3498db);
+        torso.position.y = 0;
+        humanoid.add(torso);
+
+        // Create Head
+        const head = createBox(1, 1.5, 1, 0xffe0bd);
+        head.position.set(0, 2.5, 0);
+        humanoid.add(head);
+
+        // Add Arms (with elbow joint)
+        function createArm(side) {
+            const upperArm = createBox(0.3, 1.5, 0.3, 0x3498db);
+            const lowerArm = createBox(0.2, 1.5, 0.2, 0x3498db);
+            const hand = createBox(0.4, 0.4, 0.4, 0xffe0bd);
+
+            if (side === 'left') {
+                upperArm.position.set(-1.2, 1, 0);
+                lowerArm.position.set(-2.2, 1, 0);
+                hand.position.set(-2.7, 1, 0);
+            } else {
+                upperArm.position.set(1.2, 1, 0);
+                lowerArm.position.set(2.2, 1, 0);
+                hand.position.set(2.7, 1, 0);
+            }
+
+            humanoid.add(upperArm, lowerArm, hand);
+
+            const gui = new dat.GUI();
+            const elbowRotation = { x: 0 };
+            const armFolder = gui.addFolder(`Arm Rotation (${side})`);
+            armFolder.add(elbowRotation, 'x', -Math.PI / 2, Math.PI / 2).onChange(value => {
+                lowerArm.rotation.x = value;
+            });
+            armFolder.open();
+        }
+
+        createArm('left');
+        createArm('right');
+
+        // Add Legs (with knee joint)
+        function createLeg(side) {
+            const upperLeg = createBox(0.35, 2, 0.35, 0x34495e);
+            const lowerLeg = createBox(0.3, 2, 0.3, 0x34495e);
+            const foot = createBox(0.7, 0.3, 1, 0xffe0bd);
+
+            if (side === 'left') {
+                upperLeg.position.set(-0.5, -2.5, 0);
+                lowerLeg.position.set(-0.5, -4.8, 0);
+                foot.position.set(-0.5, -6, 0.3);
+            } else {
+                upperLeg.position.set(0.5, -2.5, 0);
+                lowerLeg.position.set(0.5, -4.8, 0);
+                foot.position.set(0.5, -6, 0.3);
+            }
+
+            humanoid.add(upperLeg, lowerLeg, foot);
+
+            const gui = new dat.GUI();
+            const kneeRotation = { x: 0 };
+            const legFolder = gui.addFolder(`Knee Rotation (${side})`);
+            legFolder.add(kneeRotation, 'x', -Math.PI / 2, Math.PI / 2).onChange(value => {
+                lowerLeg.rotation.x = value;
+            });
+            legFolder.open();
+        }
+
+        createLeg('left');
+        createLeg('right');
+
+        // Add physics constraints using Cannon.js for real-world interactions
+        const torsoShape = new CANNON.Box(new CANNON.Vec3(0.75, 1.5, 0.5));
+        const torsoBody = new CANNON.Body({ mass: 1 });
+        torsoBody.addShape(torsoShape);
+        torsoBody.position.set(0, 0, 0);
+        world.addBody(torsoBody);
+
+        scene.add(humanoid);
+
+        // Position camera to better view the humanoid
+        camera.position.set(0, 6, 12);  // Adjust the camera height and distance
+        camera.lookAt(new THREE.Vector3(0, 0, 0));  // Ensure the camera is looking at the humanoid
+
+        // Animate the scene
+        function animate() {
+            requestAnimationFrame(animate);
+            renderer.render(scene, camera);
+        }
+
+        animate();
+
+    </script>
 </body>
-
-<!-- The main Three.js file -->
-<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/three@0.128/examples/js/loaders/GLTFLoader.js"></script>
-
-<script>
-
-(function () {
-  // Set our main variables
-  let scene, renderer, camera, model, neck, waist, possibleAnims, mixer, idle;
-  const clock = new THREE.Clock(); 
-  let currentlyAnimating = false;
-  const raycaster = new THREE.Raycaster();
-  
-  // Initiate Three.js setup
-  init();
-
-  function init() {
-
-    const MODEL_PATH = 'https://s3-us-west-2.amazonaws.com/s.cdpn.io/1376484/stacy_lightweight.glb';
-    const canvas = document.querySelector('#c');
-    const backgroundColor = 0xf1f1f1;
-
-    // Init the scene
-    scene = new THREE.Scene();
-    scene.background = new THREE.Color(backgroundColor);
-    scene.fog = new THREE.Fog(backgroundColor, 60, 100);
-
-    // Init the renderer
-    renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
-    renderer.shadowMap.enabled = true;
-    renderer.setPixelRatio(window.devicePixelRatio);
-    renderer.setSize(window.innerWidth, window.innerHeight);
-    document.body.appendChild(renderer.domElement);
-
-    // Add a camera
-    camera = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, 0.1, 1000);
-    camera.position.set(0, -3, 30);
-
-    // Add Lights
-    let hemiLight = new THREE.HemisphereLight(0xffffff, 0xffffff, 0.61);
-    hemiLight.position.set(0, 50, 0);
-    scene.add(hemiLight);
-
-    let dirLight = new THREE.DirectionalLight(0xffffff, 0.54);
-    dirLight.position.set(-8, 12, 8);
-    dirLight.castShadow = true;
-    dirLight.shadow.mapSize = new THREE.Vector2(1024, 1024);
-    scene.add(dirLight);
-
-    // Load Model
-    const loader = new THREE.GLTFLoader();
-    loader.load(
-      MODEL_PATH,
-      function (gltf) {
-        model = gltf.scene;
-        let fileAnimations = gltf.animations;
-
-        model.traverse(o => {
-          if (o.isMesh) {
-            o.castShadow = true;
-            o.receiveShadow = true;
-          }
-          if (o.isBone && o.name === 'mixamorigNeck') {
-            neck = o;
-          }
-          if (o.isBone && o.name === 'mixamorigSpine') {
-            waist = o;
-          }
-        });
-
-        model.scale.set(7, 7, 7);
-        model.position.y = -11;
-        scene.add(model);
-
-        mixer = new THREE.AnimationMixer(model);
-        let clips = fileAnimations.filter(val => val.name !== 'idle');
-        possibleAnims = clips.map(val => mixer.clipAction(val));
-        
-        idle = mixer.clipAction(THREE.AnimationClip.findByName(fileAnimations, 'idle'));
-        idle.play();
-      },
-      undefined, 
-      function (error) {
-        console.error(error);
-      });
-
-    // Floor
-    const floorGeometry = new THREE.PlaneGeometry(5000, 5000, 1, 1);
-    const floorMaterial = new THREE.MeshPhongMaterial({
-      color: 0xeeeeee,
-      shininess: 0
-    });
-    const floor = new THREE.Mesh(floorGeometry, floorMaterial);
-    floor.rotation.x = -0.5 * Math.PI;
-    floor.receiveShadow = true;
-    floor.position.y = -11;
-    scene.add(floor);
-
-    // Animation update function
-    update();
-  }
-
-  function update() {
-    if (mixer) {
-      mixer.update(clock.getDelta());
-    }
-
-    if (resizeRendererToDisplaySize(renderer)) {
-      const canvas = renderer.domElement;
-      camera.aspect = canvas.clientWidth / canvas.clientHeight;
-      camera.updateProjectionMatrix();
-    }
-
-    renderer.render(scene, camera);
-    requestAnimationFrame(update);
-  }
-
-  function resizeRendererToDisplaySize(renderer) {
-    const canvas = renderer.domElement;
-    const width = window.innerWidth;
-    const height = window.innerHeight;
-    const needResize = canvas.width !== width || canvas.height !== height;
-    if (needResize) {
-      renderer.setSize(width, height, false);
-    }
-    return needResize;
-  }
-
-  // Handle mouse interaction
-  window.addEventListener('click', e => raycast(e));
-  window.addEventListener('touchend', e => raycast(e, true));
-
-  function raycast(e, touch = false) {
-    const mouse = {};
-    if (touch) {
-      mouse.x = 2 * (e.changedTouches[0].clientX / window.innerWidth) - 1;
-      mouse.y = 1 - 2 * (e.changedTouches[0].clientY / window.innerHeight);
-    } else {
-      mouse.x = 2 * (e.clientX / window.innerWidth) - 1;
-      mouse.y = 1 - 2 * (e.clientY / window.innerHeight);
-    }
-
-    raycaster.setFromCamera(mouse, camera);
-    const intersects = raycaster.intersectObjects(scene.children, true);
-
-    if (intersects.length > 0) {
-      let object = intersects[0].object;
-      if (!currentlyAnimating) {
-        currentlyAnimating = true;
-        playOnClick();
-      }
-    }
-  }
-
-  // Play a random animation
-  function playOnClick() {
-    let anim = Math.floor(Math.random() * possibleAnims.length);
-    playModifierAnimation(idle, 0.25, possibleAnims[anim], 0.25);
-  }
-
-  function playModifierAnimation(from, fSpeed, to, tSpeed) {
-    to.setLoop(THREE.LoopOnce);
-    to.reset();
-    to.play();
-    from.crossFadeTo(to, fSpeed, true);
-    setTimeout(() => {
-      to.crossFadeTo(from, tSpeed, true);
-      currentlyAnimating = false;
-    }, to._clip.duration * 1000 - (tSpeed + fSpeed) * 1000);
-  }
-})();
-</script>
 </html>
