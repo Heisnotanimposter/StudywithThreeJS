@@ -2,9 +2,9 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, height=device-height, initial-scale=1.0, maximum-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="viewport" content="width=device-width, height=device-height, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <meta http-equiv="X-UA-Compatible" content="ie=edge">
-    <title>Humanoid with Finger and Camera Controls</title>
+    <title>Humanoid with Full Joint, Finger, Feet Controls, Body Pivot, and Camera Features</title>
     <style>
         body { margin: 0; overflow: hidden; }
         canvas { display: block; }
@@ -46,29 +46,53 @@
         head.position.set(0, 2.5, 0);
         humanoid.add(torso, head);
 
-        // Create Arm Function with Hand and Fingers
+        // Add facial features (eyes, nose, mouth, hair)
+        function createFaceFeatures() {
+            const leftEye = createBox(0.2, 0.2, 0.2, 0x000000);
+            const rightEye = createBox(0.2, 0.2, 0.2, 0x000000);
+            const nose = createBox(0.2, 0.4, 0.2, 0xffe0bd);
+            const mouth = createBox(0.4, 0.2, 0.2, 0xff0000);
+            const hair = createBox(1, 0.5, 1, 0x8b4513);
+
+            leftEye.position.set(-0.25, 0.5, 0.5);
+            rightEye.position.set(0.25, 0.5, 0.5);
+            nose.position.set(0, 0.2, 0.5);
+            mouth.position.set(0, -0.2, 0.5);
+            hair.position.set(0, 0.8, 0);
+
+            head.add(leftEye, rightEye, nose, mouth, hair);
+        }
+
+        createFaceFeatures(); // Add face features to the head
+
+        // Adjust the anchor of arms and legs to simulate natural movement
+        // Create Arm Function with natural rotation at shoulder and elbow
         function createArm(side) {
-            const upperArm = createBox(0.3, 1.5, 0.3, 0x3498db);
-            const lowerArm = createBox(0.2, 1.5, 0.2, 0x3498db);
-            const hand = createBox(0.6, 0.6, 0.3, 0xffe0bd);
+            const upperArm = createBox(0.4, 1.5, 0.4, 0x3498db);
+            const lowerArm = createBox(0.4, 1.5, 0.4, 0x3498db);
+            const palm = createBox(0.6, 0.3, 0.2, 0xffe0bd); // Trapezoidal palm represented by a box for simplicity
 
             const armGroup = new THREE.Group();
+            const lowerArmGroup = new THREE.Group();
 
-            if (side === 'left') {
-                armGroup.position.set(-1.2, 1, 0);
-            } else {
-                armGroup.position.set(1.2, 1, 0);
-            }
+            // Set the shoulder position based on side
+            armGroup.position.set(side === 'left' ? -1.2 : 1.2, 1.0, 0); 
 
-            lowerArm.position.set(0, -1.5, 0);
-            hand.position.set(0, -3, 0);
+            // Positioning the elbow
+            lowerArmGroup.position.set(0, -0.75, 0); // Elbow joint (pivot point)
+            lowerArm.position.set(0, -0.75, 0); // Lower arm positioning
 
+            // Positioning the hand
+            palm.position.set(0, -0.75, 0); // Hand positioning
+
+            // Hierarchy for rotations: shoulder -> elbow -> wrist
             armGroup.add(upperArm);
-            upperArm.add(lowerArm);
-            lowerArm.add(hand);
+            upperArm.add(lowerArmGroup);
+            lowerArmGroup.add(lowerArm);
+            lowerArm.add(palm);
             humanoid.add(armGroup);
 
-            // Create Fingers
+            // Create Fingers with space between them
             function createFinger() {
                 const finger = new THREE.Group();
                 const fingerBase = createBox(0.1, 0.4, 0.1, 0xffe0bd);
@@ -81,41 +105,67 @@
                 return finger;
             }
 
-            // Add fingers to hand
-            const fingerOffset = [0.15, 0.05, -0.05, -0.15]; // Offset for each finger
+            // Add five fingers to the palm with proper spacing
+            const fingerOffset = [0.25, 0.1, 0, -0.1, -0.25]; // Offset for each finger
             const fingers = [];
-            for (let i = 0; i < 4; i++) {
+            for (let i = 0; i < 5; i++) {
                 const finger = createFinger();
-                finger.position.set(fingerOffset[i], -0.3, 0.1); // Attach fingers naturally to hand
-                hand.add(finger);
+                finger.position.set(fingerOffset[i], -0.15, 0.05); 
+                palm.add(finger);
                 fingers.push(finger);
             }
 
-            return { upperArm, lowerArm, hand, fingers };
+            return { upperArm, lowerArmGroup, palm, fingers };
         }
 
-        // Create Legs
+        // Create Legs with natural joint positioning for hip, thigh, knee, and ankle
         function createLeg(side) {
-            const upperLeg = createBox(0.35, 2, 0.35, 0x34495e);
+            const thigh = createBox(0.4, 2, 0.4, 0x34495e);
             const lowerLeg = createBox(0.3, 2, 0.3, 0x34495e);
             const foot = createBox(0.7, 0.3, 1, 0xffe0bd);
 
             const legGroup = new THREE.Group();
+            const thighGroup = new THREE.Group();
+            const lowerLegGroup = new THREE.Group();
+
             if (side === 'left') {
-                legGroup.position.set(-0.5, -2.5, 0);
+                legGroup.position.set(-0.5, -3, 0); // hip position
             } else {
-                legGroup.position.set(0.5, -2.5, 0);
+                legGroup.position.set(0.5, -3, 0); // hip position
             }
 
-            lowerLeg.position.set(0, -2, 0);
-            foot.position.set(0, -4, 0.3);
+            thighGroup.position.set(0, -1, 0); // thigh position
+            lowerLegGroup.position.set(0, -2, 0); // knee position
+            lowerLeg.position.set(0, -0.4, 0); // ankle position
+            foot.position.set(0, -0.7, 0.6); // foot positioning, making the foot flat on the ground
 
-            legGroup.add(upperLeg);
-            upperLeg.add(lowerLeg);
+            legGroup.add(thighGroup);
+            thighGroup.add(thigh);
+            thigh.add(lowerLegGroup);
+            lowerLegGroup.add(lowerLeg);
             lowerLeg.add(foot);
             humanoid.add(legGroup);
 
-            return { upperLeg, lowerLeg, foot };
+            // Create Toes with space and 5 toes per foot
+            function createToe() {
+                const toe = new THREE.Group();
+                const toeBase = createBox(0.2, 0.1, 0.3, 0xffe0bd);
+                toe.add(toeBase);
+
+                return toe;
+            }
+
+            // Add five toes with space between them
+            const toes = [];
+            const toeOffset = [0.25, 0.1, 0, -0.1, -0.25]; 
+            for (let i = 0; i < 5; i++) {
+                const toe = createToe();
+                toe.position.set(toeOffset[i], 0, 0.3); 
+                foot.add(toe);
+                toes.push(toe);
+            }
+
+            return { thigh, lowerLeg, foot, toes, thighGroup, lowerLegGroup };
         }
 
         // Add arms and legs to humanoid
@@ -127,11 +177,16 @@
         // Add humanoid to the scene
         scene.add(humanoid);
 
+        // Add body pivot control
+        const humanoidPivot = new THREE.Group();
+        humanoidPivot.add(humanoid);
+        scene.add(humanoidPivot);
+
         // Position camera
         camera.position.set(0, 5, 15);
         camera.lookAt(scene.position);
 
-        // dat.GUI for Joint Controls with Hierarchical Grouping
+        // dat.GUI for Joint Controls
         const gui = new dat.GUI({ autoPlace: false });
         document.body.appendChild(gui.domElement);
         gui.domElement.style.position = 'absolute';
@@ -159,14 +214,18 @@
 
         // Hierarchical GUI for body parts
         const leftArmFolder = gui.addFolder("Left Arm");
-        addJointControl(leftArmFolder, "Shoulder", leftArm.upperArm);
-        addJointControl(leftArmFolder, "Elbow", leftArm.lowerArm);
-        addJointControl(leftArmFolder, "Wrist", leftArm.hand);
+        addJointControl(leftArmFolder, "Shoulder X", leftArm.upperArm, 'x', -Math.PI / 1, Math.PI / 4);
+        addJointControl(leftArmFolder, "Shoulder Y", leftArm.upperArm, 'y', -Math.PI / 4, Math.PI / 4);
+        addJointControl(leftArmFolder, "Shoulder Z", leftArm.upperArm, 'z', -Math.PI / 2, Math.PI / 2);
+        addJointControl(leftArmFolder, "Elbow", leftArm.lowerArmGroup, 'x', -Math.PI / 1, Math.PI / 18); 
+        addJointControl(leftArmFolder, "Wrist", leftArm.palm);
 
         const rightArmFolder = gui.addFolder("Right Arm");
-        addJointControl(rightArmFolder, "Shoulder", rightArm.upperArm);
-        addJointControl(rightArmFolder, "Elbow", rightArm.lowerArm);
-        addJointControl(rightArmFolder, "Wrist", rightArm.hand);
+        addJointControl(rightArmFolder, "Shoulder X", rightArm.upperArm, 'x', -Math.PI / 1, Math.PI / 4);
+        addJointControl(rightArmFolder, "Shoulder Y", rightArm.upperArm, 'y', -Math.PI / 4, Math.PI / 4);
+        addJointControl(rightArmFolder, "Shoulder Z", rightArm.upperArm, 'z', -Math.PI / 2, Math.PI / 2);
+        addJointControl(rightArmFolder, "Elbow", rightArm.lowerArmGroup, 'x', -Math.PI / 1, Math.PI / 18);
+        addJointControl(rightArmFolder, "Wrist", rightArm.palm);
 
         leftArm.fingers.forEach((finger, index) => {
             const fingerFolder = leftArmFolder.addFolder(`Finger ${index + 1}`);
@@ -181,14 +240,26 @@
         });
 
         const leftLegFolder = gui.addFolder("Left Leg");
-        addJointControl(leftLegFolder, "Knee", leftLeg.lowerLeg);
-        addJointControl(leftLegFolder, "Ankle", leftLeg.foot);
+        addJointControl(leftLegFolder, "Thigh", leftLeg.thighGroup, 'x', -Math.PI / 2, Math.PI / 4); // Limited backward
+        addJointControl(leftLegFolder, "Knee", leftLeg.lowerLegGroup, 'x', 0, Math.PI / 2); // Bends only backward
+        addJointControl(leftLegFolder, "Ankle", leftLeg.foot, 'x', -Math.PI / 6, Math.PI / 6);
 
         const rightLegFolder = gui.addFolder("Right Leg");
-        addJointControl(rightLegFolder, "Knee", rightLeg.lowerLeg);
-        addJointControl(rightLegFolder, "Ankle", rightLeg.foot);
+        addJointControl(rightLegFolder, "Thigh", rightLeg.thighGroup, 'x', -Math.PI / 2, Math.PI / 4); // Limited backward
+        addJointControl(rightLegFolder, "Knee", rightLeg.lowerLegGroup, 'x', 0, Math.PI / 2); // Bends only backward
+        addJointControl(rightLegFolder, "Ankle", rightLeg.foot, 'x', -Math.PI / 6, Math.PI / 6);
 
-        // Camera controls
+        leftLeg.toes.forEach((toe, index) => {
+            const toeFolder = leftLegFolder.addFolder(`Toe ${index + 1}`);
+            addJointControl(toeFolder, "Base", toe, 'x', -Math.PI / 6, Math.PI / 6);
+        });
+
+        rightLeg.toes.forEach((toe, index) => {
+            const toeFolder = rightLegFolder.addFolder(`Toe ${index + 1}`);
+            addJointControl(toeFolder, "Base", toe, 'x', -Math.PI / 6, Math.PI / 6);
+        });
+
+        // Camera controls (now rotates the camera around the humanoid with 'awsd')
         let isDragging = false;
         let previousMousePosition = { x: 0, y: 0 };
         const mouseSensitivity = 0.003;
@@ -196,76 +267,64 @@
         const zoomSpeed = 0.001;
 
         document.addEventListener('mousedown', () => { 
-                if (!guiFocused) {
-                    isDragging = true;
-                }
-            });
-
-            document.addEventListener('mouseup', () => { 
-                isDragging = false; 
-            });
-
-            document.addEventListener('mousemove', (event) => {
-                if (isDragging && !guiFocused) {
-                    let deltaMove = { x: event.clientX - previousMousePosition.x, y: event.clientY - previousMousePosition.y };
-                    camera.rotation.y -= deltaMove.x * mouseSensitivity;
-                    camera.rotation.x -= deltaMove.y * mouseSensitivity;
-                }
-                previousMousePosition = { x: event.clientX, y: event.clientY };
-            });
-
-            // Mouse scroll for zoom
-            document.addEventListener('wheel', (event) => {
-                if (!guiFocused) {
-                    camera.position.z += event.deltaY * zoomSpeed;
-                }
-            });
-
-            // Keyboard controls
-            document.addEventListener('keydown', (event) => {
-                if (!guiFocused) {
-                    switch (event.key) {
-                        case 'ArrowUp': // Move camera forward
-                            camera.position.z -= moveSpeed;
-                            break;
-                        case 'ArrowDown': // Move camera backward
-                            camera.position.z += moveSpeed;
-                            break;
-                        case 'ArrowLeft': // Move camera left
-                            camera.position.x -= moveSpeed;
-                            break;
-                        case 'ArrowRight': // Move camera right
-                            camera.position.x += moveSpeed;
-                            break;
-                        case 'w': // Tilt camera up
-                            camera.rotation.x -= mouseSensitivity;
-                            break;
-                        case 's': // Tilt camera down
-                            camera.rotation.x += mouseSensitivity;
-                            break;
-                        case 'a': // Rotate camera left
-                            camera.rotation.y -= mouseSensitivity;
-                            break;
-                        case 'd': // Rotate camera right
-                            camera.rotation.y += mouseSensitivity;
-                            break;
-                        case '+': // Zoom in
-                            camera.position.z -= zoomSpeed;
-                            break;
-                        case '-': // Zoom out
-                            camera.position.z += zoomSpeed;
-                            break;
-                    }
-                }
-            });
-
-            // Animate function
-            function animate() {
-                requestAnimationFrame(animate);
-                renderer.render(scene, camera);
+            if (!guiFocused) {
+                isDragging = true;
             }
+        });
 
-            animate();
+        document.addEventListener('mouseup', () => { 
+            isDragging = false; 
+        });
+
+        document.addEventListener('mousemove', (event) => {
+            if (isDragging && !guiFocused) {
+                let deltaMove = { x: event.clientX - previousMousePosition.x, y: event.clientY - previousMousePosition.y };
+                camera.rotation.y -= deltaMove.x * mouseSensitivity;
+                camera.rotation.x -= deltaMove.y * mouseSensitivity;
+            }
+            previousMousePosition = { x: event.clientX, y: event.clientY };
+        });
+
+        // Mouse scroll for zoom
+        document.addEventListener('wheel', (event) => {
+            if (!guiFocused) {
+                camera.position.z += event.deltaY * zoomSpeed;
+            }
+        });
+
+        // Keyboard controls for camera rotation around the humanoid
+        document.addEventListener('keydown', (event) => {
+            if (!guiFocused) {
+                switch (event.key) {
+                    case 'w': 
+                        camera.rotation.x -= moveSpeed * mouseSensitivity;
+                        break;
+                    case 's': 
+                        camera.rotation.x += moveSpeed * mouseSensitivity;
+                        break;
+                    case 'a': 
+                        camera.rotation.y -= moveSpeed * mouseSensitivity;
+                        break;
+                    case 'd': 
+                        camera.rotation.y += moveSpeed * mouseSensitivity;
+                        break;
+                    case '+': 
+                        camera.position.z -= zoomSpeed;
+                        break;
+                    case '-': 
+                        camera.position.z += zoomSpeed;
+                        break;
+                }
+            }
+        });
+
+        // Animate function
+        function animate() {
+            requestAnimationFrame(animate);
+            renderer.render(scene, camera);
+        }
+
+        animate();
 
     </script>
 </body>
