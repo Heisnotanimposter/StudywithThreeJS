@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, height=device-height, initial-scale=1.0, maximum-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta http-equiv="X-UA-Compatible" content="ie=edge">
+    <title>Humanoid with Correct Joint Rotation</title>
+    <style>
+        body { margin: 0; overflow: hidden; }
+        canvas { display: block; }
+    </style>
+</head>
+<body>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/dat.gui/build/dat.gui.min.js"></script>
+
+    <script>
+        // Basic Three.js Setup
+        const scene = new THREE.Scene();
+        const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+        const renderer = new THREE.WebGLRenderer({ antialias: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        document.body.appendChild(renderer.domElement);
+
+        // Lighting
+        const light = new THREE.DirectionalLight(0xffffff, 1);
+        light.position.set(5, 5, 5);
+        scene.add(light);
+        const ambientLight = new THREE.AmbientLight(0x404040);
+        scene.add(ambientLight);
+
+        // Function to create boxes for body parts
+        function createBox(width, height, depth, color) {
+            const geometry = new THREE.BoxGeometry(width, height, depth);
+            const material = new THREE.MeshPhongMaterial({ color });
+            return new THREE.Mesh(geometry, material);
+        }
+
+        // Create humanoid group
+        const humanoid = new THREE.Group();
+
+        // Create Torso and Head
+        const torso = createBox(1.5, 3, 1, 0x3498db);
+        const head = createBox(1, 1.5, 1, 0xffe0bd);
+        head.position.set(0, 2.5, 0);
+        humanoid.add(torso, head);
+
+        // Adjust the anchor of arms and legs to simulate natural movement
+        // Create Arm Function with natural rotation at shoulder and elbow
+        function createArm(side) {
+            const upperArm = createBox(0.4, 1.5, 0.4, 0x3498db);
+            const lowerArm = createBox(0.4, 1.5, 0.4, 0x3498db);
+            const hand = createBox(0.6, 0.6, 0.3, 0xffe0bd);
+
+            const armGroup = new THREE.Group();
+            const lowerArmGroup = new THREE.Group();
+
+            if (side === 'left') {
+                armGroup.position.set(-1.2, 1.0, 0); // shoulder position
+            } else {
+                armGroup.position.set(1.2, 1.0, 0);
+            }
+
+            lowerArmGroup.position.set(0, -0.3, 0); // elbow position
+            lowerArm.position.set(0, -1.5, 0); // hand positioning
+            hand.position.set(0, -1.5, 0);
+
+            armGroup.add(upperArm);
+            upperArm.add(lowerArmGroup);
+            lowerArmGroup.add(lowerArm);
+            lowerArm.add(hand);
+            humanoid.add(armGroup);
+
+            return { upperArm, lowerArm, hand, lowerArmGroup };
+        }
+
+        // Create Legs with natural joint positioning for hip, knee, and ankle
+        function createLeg(side) {
+            const upperLeg = createBox(0.35, 2, 0.35, 0x34495e);
+            const lowerLeg = createBox(0.3, 2, 0.3, 0x34495e);
+            const foot = createBox(0.7, 0.3, 1, 0xffe0bd);
+
+            const legGroup = new THREE.Group();
+            const lowerLegGroup = new THREE.Group();
+
+            if (side === 'left') {
+                legGroup.position.set(-0.5, -3, 0); // hip position
+            } else {
+                legGroup.position.set(0.5, -3, 0); // hip position
+            }
+
+            lowerLegGroup.position.set(0, -2, 0); // knee position
+            lowerLeg.position.set(0, -0.4, 0); // ankle position
+            foot.position.set(0, -0.7, 0.6); // foot positioning, making the foot flat on the ground
+
+            legGroup.add(upperLeg);
+            upperLeg.add(lowerLegGroup);
+            lowerLegGroup.add(lowerLeg);
+            lowerLeg.add(foot);
+            humanoid.add(legGroup);
+
+            return { upperLeg, lowerLeg, foot, lowerLegGroup };
+        }
+
+        // Add arms and legs to humanoid
+        const leftArm = createArm('left');
+        const rightArm = createArm('right');
+        const leftLeg = createLeg('left');
+        const rightLeg = createLeg('right');
+
+        // Add humanoid to the scene
+        scene.add(humanoid);
+
+        // Position camera
+        camera.position.set(0, 5, 15);
+        camera.lookAt(scene.position);
+
+        // dat.GUI for Joint Controls
+        const gui = new dat.GUI();
+
+        // Control for shoulder, elbow, knee, ankle, and wrist joints
+        function addJointControl(gui, name, joint, axis = 'x', min = -Math.PI / 2, max = Math.PI / 2) {
+            const control = {};
+            control[axis] = 0;
+            const folder = gui.addFolder(name);
+            folder.add(control, axis, min, max).onChange(value => {
+                joint.rotation[axis] = value;
+            });
+            folder.open();
+        }
+
+        // Add controls for arm and leg joints
+        addJointControl(gui, "Left Shoulder", leftArm.upperArm);
+        addJointControl(gui, "Left Elbow", leftArm.lowerArmGroup);
+        addJointControl(gui, "Right Shoulder", rightArm.upperArm);
+        addJointControl(gui, "Right Elbow", rightArm.lowerArmGroup);
+
+        addJointControl(gui, "Left Knee", leftLeg.lowerLegGroup);
+        addJointControl(gui, "Right Knee", rightLeg.lowerLegGroup);
+        addJointControl(gui, "Left Ankle", leftLeg.foot);
+        addJointControl(gui, "Right Ankle", rightLeg.foot);
+
+        // Animate function
+        function animate() {
+            requestAnimationFrame(animate);
+            renderer.render(scene, camera);
+        }
+
+        animate();
+
+    </script>
+</body>
+</html>
