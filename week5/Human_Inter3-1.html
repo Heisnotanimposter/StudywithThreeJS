@@ -6,7 +6,7 @@
     <meta http-equiv="X-UA-Compatible" content="ie=edge">
     <title>Humanoid with Full Joint, Neck, Waist, and GUI Controls</title>
     <style>
-        body { margin: 0; overflow: hidden; }
+        body { margin: 5; overflow: hidden; }
         canvas { display: block; }
         .gui-controls {
             position: absolute;
@@ -14,14 +14,27 @@
             width: 100%;
             display: flex;
             justify-content: center;
-            background-color: rgba(0, 0, 0, 0.5);
+            background-color: rgba(0, 0, 0, 0);
         }
         .accessory-controls {
             position: absolute;
             top: 0;
             right: 0;
-            background-color: rgba(0, 0, 0, 0.5);
+            background-color: rgba(0, 0, 0, 0);
             padding: 10px;
+        }
+        .toast {
+            position: absolute;
+            top: 0%;
+            right: 50%;
+            transform: translate(-50%, -50%);
+            background-color: rgba(0, 0, 0, 0);
+            color: white;
+            padding: 5px 2px;
+            border-radius: 1px;
+            z-index: 10;
+            display: none;
+            font-size: 25px;
         }
     </style>
 </head>
@@ -31,13 +44,15 @@
         <button id="waveHello">Wave Hello</button>
         <button id="walk">Walk</button>
     </div>
-
     <div class="accessory-controls">
         <button id="addBackpack">Add Backpack</button>
         <button id="addGlasses">Add Glasses</button>
         <button id="addEarpods">Add Earpods</button>
     </div>
-
+    <div id="toast">
+        -------------------------------------------------------------------------------Use 'AWSD' keys to move the camera. Dragging mouse to rotate. Scrolling to zoom In and Out.------------------------------------------------------------------------------------------------------------
+    </div>
+    
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/dat.gui/build/dat.gui.min.js"></script>
 
@@ -46,12 +61,12 @@
 
         const scene = new THREE.Scene();
         const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
-        const renderer = new THREE.WebGLRenderer({ antialias: true });
+        const renderer = new THREE.WebGLRenderer({ antialias: false });
         renderer.setSize(window.innerWidth, window.innerHeight);
         document.body.appendChild(renderer.domElement);
 
-        // Adjust camera position for better view
-        camera.position.set(0, 2, 10); // Back the camera up to view the humanoid
+        // Back the camera up to view the humanoid
+        camera.position.set(0, 2, 10); 
 
         // Lighting
         const light = new THREE.DirectionalLight(0xffffff, 1);
@@ -62,7 +77,7 @@
 
         // Create humanoid group
         const humanoid = new THREE.Group();
-        humanoid.position.set(0, 0, 0); // Ensure humanoid is centered
+        humanoid.position.set(0, 0, 0);
         scene.add(humanoid);
 
         // Create torso, head, neck, and waist
@@ -154,8 +169,8 @@
 
         // Create Leg function with toes
         function createLeg(side) {
-            const thigh = createBox(0.4, 2, 0.4, 0x34495e);
-            const lowerLeg = createBox(0.3, 2, 0.3, 0x34495e);
+            const thigh = createBox(0.4, 2, 0.4, 0x000000);
+            const lowerLeg = createBox(0.3, 2, 0.3, 0x000000);
             const foot = createBox(0.7, 0.3, 1, 0xffe0bd);
 
             const legGroup = new THREE.Group();
@@ -195,6 +210,7 @@
 
             return { thighGroup, lowerLegGroup, foot, toes };
         }
+        
         // Creating room environment (walls and floor)
         const floor = createBox(20, 1, 20, 0xffffff); // White floor
         floor.position.set(0, -9, 0);
@@ -324,65 +340,79 @@
         });
 
         document.addEventListener('keydown', (event) => {
-            if (!guiFocused) {
-                switch (event.key) {
-                    case 'w': 
-                        camera.rotation.x -= moveSpeed * mouseSensitivity;
-                        break;
-                    case 's': 
-                        camera.rotation.x += moveSpeed * mouseSensitivity;
-                        break;
-                    case 'a': 
-                        camera.rotation.y -= moveSpeed * mouseSensitivity;
-                        break;
-                    case 'd': 
-                        camera.rotation.y += moveSpeed * mouseSensitivity;
-                        break;
-                    case '+': 
-                        camera.position.z -= zoomSpeed;
-                        break;
-                    case '-': 
-                        camera.position.z += zoomSpeed;
-                        break;
+        if (!guiFocused) {
+            const cameraDirection = new THREE.Vector3();
+            camera.getWorldDirection(cameraDirection); // Get camera's forward vector
+
+            switch (event.key) {
+                case 'w': // Forward
+                    camera.position.add(cameraDirection.clone().multiplyScalar(moveSpeed)); 
+                    break;
+                case 's': // Backward
+                case 's': // Backward
+                    camera.position.add(cameraDirection.clone().multiplyScalar(-moveSpeed));
+                    break;
+                case 'a': // Left
+                case 'a': // Left
+                    camera.position.add(cameraDirection.clone().cross(camera.up).normalize().multiplyScalar(-moveSpeed));
+                    break;
+                case 'd': // Right
+                    camera.position.add(cameraDirection.clone().cross(camera.up).normalize().multiplyScalar(moveSpeed));
+                    break;
+                case '+': // Zoom in 
+                    camera.position.z -= zoomSpeed;
+                    break;
+                case '-': // Zoom out
+                    camera.position.z += zoomSpeed;
+                    break;
                 }
             }
         });
 
+        // Add action buttons
+        document.getElementById('waveHello').addEventListener('click', () => {
+            leftArm.upperArm.rotation.x = Math.PI / -1;
+            leftArm.lowerArmGroup.rotation.x = Math.PI / 8;
+        });
+
+        document.getElementById('walk').addEventListener('click', () => {
+            leftLeg.thighGroup.rotation.x = Math.PI / 6;
+            rightLeg.thighGroup.rotation.x = -Math.PI / 6;
+            leftLeg.lowerLegGroup.rotation.x = Math.PI / 8;
+            rightLeg.lowerLegGroup.rotation.x = -Math.PI / 8;
+        });
+
         // Add accessory buttons
         document.getElementById('addBackpack').addEventListener('click', () => {
-            // Create the backpack as a rectangular solid box
-            const backpack = createBox(1.5, 3, 0.6, 0x000000); // A rectangular box with width, height, depth
-            backpack.position.set(0, -1.5, -1.5); // Position it slightly behind the torso
+            const backpack = createBox(1.5, 2.2, 0.6, 0x000000);
+            backpack.position.set(0, 1, -1.1);
     
-            // Optional: Add additional details like straps or pockets
-            const strapLeft = createBox(0.1, 0, 0.1, 0x808080); // Thin strap on the left side
-            const strapRight = createBox(0.1, 0, 0.1, 0x808080); // Thin strap on the right side
-            //strapLeft.position.set(-0.75, 3, -1.4); // Position left strap
-            //strapRight.position.set(0.75, 3, -1.4); // Position right strap
+            const strapLeft = createBox(0.1, 2, 1, 0x808080); 
+            const strapRight = createBox(0.1, 2, 1, 0x808080); 
+            strapLeft.position.set(-0.8, 0, 1);
+            strapRight.position.set(0.8, 0, 1); 
 
-            //const pocket = createBox(1.2, 1, 0.2, 0x505050); // A small pocket on the lower part of the backpack
-            pocket.position.set(0, 0, -1.7); // Position the pocket
+            const pocket = createBox(1.2, 1, 0.2, 0x505050); 
+            pocket.position.set(0, 1, -0.1); 
     
-            // Add the backpack and details to the torso
             backpack.add(strapLeft, strapRight, pocket);
             torso.add(backpack);
         });
 
         document.getElementById('addGlasses').addEventListener('click', () => {
-            const glasses = createBox(1, 0.1, 1, 0x000000);
-            glasses.position.set(0, 0.6, 0.6);
+            const glasses = createBox(1.1, 0.3, 1, 0xf0f0f0);
+            glasses.position.set(0, 0.5, 0.2);
             head.add(glasses);
         });
 
         document.getElementById('addEarpods').addEventListener('click', () => {
             const earpodL = createBox(0.2, 0.5, 0.2, 0xf0f0f0);
             const earpodR = createBox(0.2, 0.5, 0.2, 0xf0f0f0);
-            earpodL.position.set(0.6, 0.3, 0.5);
-            earpodR.position.set(-0.6, 0.3, 0.5);
+            earpodL.position.set(0.6, 0.3, -0.3);
+            earpodR.position.set(-0.6, 0.3, -0.3);
 
             head.add(earpodL,earpodR);
         });
-
         // Animate function
         function animate() {
             requestAnimationFrame(animate);
