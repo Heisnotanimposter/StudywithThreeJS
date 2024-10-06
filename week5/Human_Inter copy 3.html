@@ -1,10 +1,11 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, height=device-height, maximum-scale=1.0, user-scalable=no">
     <meta http-equiv="X-UA-Compatible" content="ie=edge">
-    <title>Humanoid with Full Joint, Finger, Feet, Action, and Accessory Features</title>
+    <title>Humanoid with Room Environment</title>
     <style>
         body { margin: 0; overflow: hidden; }
         canvas { display: block; }
@@ -19,7 +20,7 @@
         .accessory-controls {
             position: absolute;
             top: 0;
-            right: 0;
+            Right: 0;
             background-color: rgba(255, 255, 255, 0.5);
             padding: 10px;
         }
@@ -39,10 +40,13 @@
     </div>
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/dat.gui/build/dat.gui.min.js"></script>
 
     <script>
         let guiFocused = false;
+        let isWaving = false;
+        let isWalking = false;
+        let waveTimer = 0;
+        let walkTimer = 0;
 
         const scene = new THREE.Scene();
         const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
@@ -50,14 +54,12 @@
         renderer.setSize(window.innerWidth, window.innerHeight);
         document.body.appendChild(renderer.domElement);
 
-        // Lighting
         const light = new THREE.DirectionalLight(0xffffff, 1);
         light.position.set(5, 5, 5);
         scene.add(light);
         const ambientLight = new THREE.AmbientLight(0x404040);
         scene.add(ambientLight);
 
-        // Create humanoid group
         const humanoid = new THREE.Group();
         scene.add(humanoid);
 
@@ -69,9 +71,9 @@
         createFaceFeatures();
 
         const leftArm = createArm('left');
-        const rightArm = createArm('right');
+        const RightArm = createArm('Right');
         const leftLeg = createLeg('left');
-        const rightLeg = createLeg('right');
+        const RightLeg = createLeg('Right');
 
         function createBox(width, height, depth, color) {
             const geometry = new THREE.BoxGeometry(width, height, depth);
@@ -80,24 +82,29 @@
         }
 
         function createFaceFeatures() {
-            const leftEye = createBox(0.2, 0.2, 0.2, 0x000000);
-            const rightEye = createBox(0.2, 0.2, 0.2, 0x000000);
+            const LeftSclera = createBox(0.2, 0.2, 0.2, 0x000000);
+            const LeftIris = createBox(0.1, 0.1, 0.1, 0xffffff);
+            const RightSclera = createBox(0.2, 0.2, 0.2, 0x000000);
+            const RightIris = createBox(0.8, 0.2, 0.1, 0xffffff);
             const nose = createBox(0.2, 0.4, 0.2, 0xffe0bd);
             const mouth = createBox(0.4, 0.2, 0.2, 0xff0000);
             const hair = createBox(1, 0.5, 1, 0x8b4513);
 
-            leftEye.position.set(-0.25, 0.5, 0.5);
-            rightEye.position.set(0.25, 0.5, 0.5);
+            LeftSclera.position.set(-0.25, 0.5, 0.5);
+            LeftIris.position.set(-0.25, 0.5, 0.5);
+
+            RightSclera.position.set(0.25, 0.5, 0.5);
+            RightIris.position.set(0.25, 0.4, 0.5);
+
             nose.position.set(0, 0.2, 0.5);
             mouth.position.set(0, -0.2, 0.5);
             hair.position.set(0, 0.8, 0);
 
-            head.add(leftEye, rightEye, nose, mouth, hair);
+            head.add(LeftSclera, RightSclera, nose, mouth, hair);
         }
 
-        // Create Arm function
         function createArm(side) {
-            const upperArm = createBox(0.5, 1.5, 0.4, 0x3498db);
+            const upperArm = createBox(0.4, 1.5, 0.4, 0x3498db);
             const lowerArm = createBox(0.4, 1.5, 0.4, 0x3498db);
             const palm = createBox(0.6, 0.3, 0.2, 0xffe0bd);
 
@@ -105,9 +112,9 @@
             const lowerArmGroup = new THREE.Group();
 
             armGroup.position.set(side === 'left' ? -1.2 : 1.2, 1.0, 0); 
-            lowerArmGroup.position.set(0, -0.70, 0); 
-            lowerArm.position.set(0, -0.70, 0); 
-            palm.position.set(0, -0.70, 0); 
+            lowerArmGroup.position.set(0, -0.75, 0); 
+            lowerArm.position.set(0, -0.75, 0); 
+            palm.position.set(0, -0.75, 0); 
 
             armGroup.add(upperArm);
             upperArm.add(lowerArmGroup);
@@ -115,20 +122,9 @@
             lowerArm.add(palm);
             humanoid.add(armGroup);
 
-            // Add fingers
-            const fingers = [];
-            const fingerOffsets = [-0.2, -0.05, 0.05, 0.2, 0.35]; // Offset for each finger position
-            fingerOffsets.forEach(offset => {
-                const finger = createBox(0.2, 0.7, 0.2, 0xffe0bd);
-                finger.position.set(offset, -0.9, 0);
-                palm.add(finger);
-                fingers.push(finger);
-            });
-
-            return { upperArm, lowerArmGroup, palm, fingers };
+            return { upperArm, lowerArmGroup, palm };
         }
 
-        // Create Leg function
         function createLeg(side) {
             const thigh = createBox(0.4, 2, 0.4, 0x34495e);
             const lowerLeg = createBox(0.3, 2, 0.3, 0x34495e);
@@ -138,7 +134,7 @@
             const thighGroup = new THREE.Group();
             const lowerLegGroup = new THREE.Group();
 
-            legGroup.position.set(side === 'left' ? -0.5 : 0.5, -1.7, 0); 
+            legGroup.position.set(side === 'left' ? -0.5 : 0.5, -3, 0); 
             thighGroup.position.set(0, -1, 0); 
             lowerLegGroup.position.set(0, -2, 0); 
             lowerLeg.position.set(0, -0.4, 0); 
@@ -151,127 +147,112 @@
             lowerLeg.add(foot);
             humanoid.add(legGroup);
 
-            // Add toes
-            const toes = [];
-            const toeOffsets = [-0.15, 0, 0.15]; // Offset for each toe position
-            toeOffsets.forEach(offset => {
-                const toe = createBox(0.2, 0.1, 0.3, 0xffe0bd);
-                toe.position.set(offset, -0.9, 1.0);
-                foot.add(toe);
-                toes.push(toe);
-            });
-
-            return { thighGroup, lowerLegGroup, foot, toes };
+            return { thighGroup, lowerLegGroup, foot };
         }
 
-        // Creating room environment (walls and floor)
-        const floor = createBox(20, 1, 20, 0xffffff); // White floor
-        floor.position.set(0, -9, 0);
-        scene.add(floor);
-
-        const wall1 = createBox(20, 10, 1, 0xffffff); // Back wall
-        wall1.position.set(0, 0, -10);
-        scene.add(wall1);
-
-        const wall2 = createBox(20, 10, 1, 0xffffff); // Front wall (for perception)
-        wall2.position.set(0, 0, 10);
-        scene.add(wall2);
-
-        const wall3 = createBox(1, 10, 20, 0xffffff); // Left wall
-        wall3.position.set(-10, 0, 0);
-        scene.add(wall3);
-
-        const wall4 = createBox(1, 10, 20, 0xffffff); // Right wall
-        wall4.position.set(10, 0, 0);
-        scene.add(wall4);
-
-        // Joint controls
-        const gui = new dat.GUI({ autoPlace: false });
-        document.body.appendChild(gui.domElement);
-        gui.domElement.style.position = 'absolute';
-        gui.domElement.style.top = '0px';
-
-        // Add joint controls
-        function addJointControl(gui, name, joint, axis = 'x', min = -Math.PI / 2, max = Math.PI / 2) {
-            const control = {};
-            control[axis] = 0;
-            const folder = gui.addFolder(name);
-            folder.add(control, axis, min, max).onChange(value => {
-                joint.rotation[axis] = value;
-            });
-            folder.open();
+        // Basic waving animation
+        function waveHello() {
+            isWaving = true;
+            waveTimer = 0;
         }
 
-        // Joint controls for arms
-        const leftArmFolder = gui.addFolder("Left Arm");
-        addJointControl(leftArmFolder, "Shoulder X", leftArm.upperArm, 'x', -Math.PI / 1, Math.PI / 4);
-        addJointControl(leftArmFolder, "Shoulder Y", leftArm.upperArm, 'y', -Math.PI / 4, Math.PI / 4);
-        addJointControl(leftArmFolder, "Shoulder Z", leftArm.upperArm, 'z', -Math.PI / 2, Math.PI / 2);
-        addJointControl(leftArmFolder, "Elbow", leftArm.lowerArmGroup, 'x', -Math.PI / 1, Math.PI / 18);
-        addJointControl(leftArmFolder, "Wrist", leftArm.palm);
+        function updateWaving(deltaTime) {
+            if (isWaving) {
+                waveTimer += deltaTime;
+                const angle = Math.sin(waveTimer * 5) * (Math.PI / 6); // Waving angle
+                leftArm.lowerArmGroup.rotation.x = angle;
+                if (waveTimer > 4) {
+                    isWaving = false; // Stop after a few seconds
+                    leftArm.lowerArmGroup.rotation.x = 0; // Reset arm
+                }
+            }
+        }
 
-        const rightArmFolder = gui.addFolder("Right Arm");
-        addJointControl(rightArmFolder, "Shoulder X", rightArm.upperArm, 'x', -Math.PI / 1, Math.PI / 4);
-        addJointControl(rightArmFolder, "Shoulder Y", rightArm.upperArm, 'y', -Math.PI / 4, Math.PI / 4);
-        addJointControl(rightArmFolder, "Shoulder Z", rightArm.upperArm, 'z', -Math.PI / 2, Math.PI / 2);
-        addJointControl(rightArmFolder, "Elbow", rightArm.lowerArmGroup, 'x', -Math.PI / 1, Math.PI / 18);
-        addJointControl(rightArmFolder, "Wrist", rightArm.palm);
+        // Basic walking animation
+        function walk() {
+            isWalking = true;
+            walkTimer = 0;
+        }
 
-        // Joint controls for legs
-        const leftLegFolder = gui.addFolder("Left Leg");
-        addJointControl(leftLegFolder, "Thigh", leftLeg.thighGroup, 'x', -Math.PI / 2, Math.PI / 4);
-        addJointControl(leftLegFolder, "Knee", leftLeg.lowerLegGroup, 'x', 0, Math.PI / 2);
-        addJointControl(leftLegFolder, "Ankle", leftLeg.foot, 'x', -Math.PI / 6, Math.PI / 6);
+        function updateWalking(deltaTime) {
+            if (isWalking) {
+                walkTimer += deltaTime;
+                const angle = Math.sin(walkTimer * 2) * (Math.PI / 6); // Walking angle
+                leftLeg.thighGroup.rotation.x = angle;
+                RightLeg.thighGroup.rotation.x = -angle;
+                if (walkTimer > 6) {
+                    isWalking = false; // Stop walking after 6 seconds
+                    leftLeg.thighGroup.rotation.x = 0; // Reset legs
+                    RightLeg.thighGroup.rotation.x = 0;
+                }
+            }
+        }
 
-        const rightLegFolder = gui.addFolder("Right Leg");
-        addJointControl(rightLegFolder, "Thigh", rightLeg.thighGroup, 'x', -Math.PI / 2, Math.PI / 4);
-        addJointControl(rightLegFolder, "Knee", rightLeg.lowerLegGroup, 'x', 0, Math.PI / 2);
-        addJointControl(rightLegFolder, "Ankle", rightLeg.foot, 'x', -Math.PI / 6, Math.PI / 6);
+        // Animation loop
+        function animate() {
+            const deltaTime = 0.016; // Approximate 60 FPS
+            updateWaving(deltaTime);
+            updateWalking(deltaTime);
 
-        // Add controls for fingers
-        leftArm.fingers.forEach((finger, index) => {
-            const fingerFolder = leftArmFolder.addFolder(`Finger ${index + 1}`);
-            addJointControl(fingerFolder, "Base", finger, 'x', -Math.PI / 4, Math.PI / 4);
+            requestAnimationFrame(animate);
+            renderer.render(scene, camera);
+        }
+
+        animate();
+
+        // Event listeners for action buttons
+        document.getElementById('waveHello').addEventListener('click', waveHello);
+        document.getElementById('walk').addEventListener('click', walk);
+
+        // Accessory buttons (add backpack, glasses, and earpods)
+        document.getElementById('addBackpack').addEventListener('click', () => {
+            const backpack = createBox(1, 2, 0.5, 0x8b4513);
+            backpack.position.set(0, -0.5, -0.7);
+            torso.add(backpack);
         });
 
-        rightArm.fingers.forEach((finger, index) => {
-            const fingerFolder = rightArmFolder.addFolder(`Finger ${index + 1}`);
-            addJointControl(fingerFolder, "Base", finger, 'x', -Math.PI / 4, Math.PI / 4);
+        document.getElementById('addGlasses').addEventListener('click', () => {
+            const glasses = createBox(1.0, 0.01, 0.1, 0xffffff);
+
+            glasses.position.set(0, 0.6, 0.6);
+
+            head.add(glasses);
         });
 
-        // Add controls for toes
-        leftLeg.toes.forEach((toe, index) => {
-            const toeFolder = leftLegFolder.addFolder(`Toe ${index + 1}`);
-            addJointControl(toeFolder, "Base", toe, 'x', -Math.PI / 6, Math.PI / 6);
+        document.getElementById('addEarpods').addEventListener('click', () => {
+            const leftEarpod = createBox(0.1, 0.4, 0.1, 0xffffff); // Left Earpod
+            const RightEarpod = createBox(0.1, 0.4, 0.1, 0xffffff); // Right Earpod
+
+            leftEarpod.position.set(-0.6, 0.2, 0.6); // Position on the left ear
+            RightEarpod.position.set(0.6, 0.2, 0.6); // Position on the Right ear
+
+            head.add(leftEarpod);
+            head.add(RightEarpod);
         });
 
-        rightLeg.toes.forEach((toe, index) => {
-            const toeFolder = rightLegFolder.addFolder(`Toe ${index + 1}`);
-            addJointControl(toeFolder, "Base", toe, 'x', -Math.PI / 6, Math.PI / 6);
-        });
-
-        // Camera controls (rotation along the 'z' axis)
+        // Camera controls for mouse and keyboard
         let isDragging = false;
         let previousMousePosition = { x: 0, y: 0 };
         const mouseSensitivity = 0.003;
+        const moveSpeed = 0.5;
         const zoomSpeed = 0.001;
 
-        document.addEventListener('mousedown', (event) => {
-            if (event.button === 2) { // Right-click to rotate along the 'z' axis
+        document.addEventListener('mousedown', () => { 
+            if (!guiFocused) {
                 isDragging = true;
             }
         });
 
-        document.addEventListener('mouseup', () => {
-            isDragging = false;
+        document.addEventListener('mouseup', () => { 
+            isDragging = false; 
         });
 
         document.addEventListener('mousemove', (event) => {
-            if (isDragging && !guiFocused && event.button === 2) {
+            if (isDragging && !guiFocused) {
                 let deltaMove = { x: event.clientX - previousMousePosition.x, y: event.clientY - previousMousePosition.y };
-                camera.rotation.z -= deltaMove.x * mouseSensitivity; // Add 'z' rotation
                 camera.rotation.y -= deltaMove.x * mouseSensitivity;
                 camera.rotation.x -= deltaMove.y * mouseSensitivity;
+                camera.rotation.z -= deltaMove.x * mouseSensitivity / 4; // Add z-axis rotation
             }
             previousMousePosition = { x: event.clientX, y: event.clientY };
         });
@@ -283,13 +264,37 @@
             }
         });
 
-        // Animate function
-        function animate() {
-            requestAnimationFrame(animate);
-            renderer.render(scene, camera);
-        }
-
-        animate();
+        // Keyboard controls for camera rotation and zoom
+        document.addEventListener('keydown', (event) => {
+            if (!guiFocused) {
+                switch (event.key) {
+                    case 'w': 
+                        camera.rotation.x -= moveSpeed * mouseSensitivity;
+                        break;
+                    case 's': 
+                        camera.rotation.x += moveSpeed * mouseSensitivity;
+                        break;
+                    case 'a': 
+                        camera.rotation.y -= moveSpeed * mouseSensitivity;
+                        break;
+                    case 'd': 
+                        camera.rotation.y += moveSpeed * mouseSensitivity;
+                        break;
+                    case 'q': 
+                        camera.rotation.z -= moveSpeed * mouseSensitivity; // Add 'q' for z-axis rotation
+                        break;
+                    case 'e': 
+                        camera.rotation.z += moveSpeed * mouseSensitivity; // Add 'e' for reverse z-axis rotation
+                        break;
+                    case '+': 
+                        camera.position.z -= zoomSpeed;
+                        break;
+                    case '-': 
+                        camera.position.z += zoomSpeed;
+                        break;
+                }
+            }
+        });
     </script>
 </body>
 </html>
