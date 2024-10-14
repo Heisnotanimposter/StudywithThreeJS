@@ -18,7 +18,7 @@ Each of these components contributes to the final color of a pixel, allowing for
 The Phong Reflection Model can be mathematically expressed as:
 
 \[
-I = I_{\text{ambient}} + I_{\text{diffuse}} + I_{\text{specular}}
+$$I = I_{\text{ambient}} + I_{\text{diffuse}} + I_{\text{specular}}$$
 \]
 
 Where:
