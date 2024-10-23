@@ -1,0 +1,94 @@
+#Camera
+//create scene and orthographic camera
+<script src = "three.js">
+	scene = new THREE.Scene();
+	camera = newTHREE.OrthographicCamera(window.innerWidth / -50, window.innerWidth / 50, window.innerHeight / 50, window.innerHeight / -50,
+	-500,1000);
+
+	renderer = new THREE.WebGLRenderer();
+	renderer.shadowMap.enabled = true;
+	renderer.setSize(window.innerwidth, window.innerHeight);
+	document.body.appendChild(renderer.domElement);
+</script>
+
+//create plane
+planeGeometry = new THREE.PlaneGeometry(1000, 1000);
+planeMaterial = new THREE.MeshPhongMaterial({color : 0xcccccc});
+floor = new THREE.Mesh(planeGeometry, planeMaterial);
+floor.rotation.x = -0.5 * Math.PI;
+floor.position.z = 0;
+floor.position.y = 0; 
+floor.position.x = 15;
+floor.receiveShadow = true;
+scene.add(floor);
+</script>
+
+//create IcosahedronGeometry
+boxGeometry = new THREE.IcosahedronGeometry(4,1);
+boxMaterial = new THREE.MeshPhongMaterial({
+	color: 0x000000,
+	shading: THREE.FlatShading
+});
+cube = new THREE.Mesh(boxGeometry, boxMaterial);
+cube.castShadow = true;
+cube.position.x = -4;
+cube.position.y = 5;
+cube.position.z = 0;
+scene.add(cube);
+
+</script>
+//create point Light
+light = new THREE.pointLight(0xfffff,1, 100);
+light.add(new THREE.Mesh(sphere, new THREE.MeshBasicMaterial({color: 0xffffff
+})));
+light.position.set(-10, 10, 0);
+light.castShadow = true;
+scene.add(light);
+</script>
+
+//create AmbientLight
+
+var ambiColor = "#c1c1c1";
+ambientLight = new THREE.AmbientLight(ambiColor);
+scene.add(ambientLight);
+</script>
+
+//create spot Light
+spotlight = new THRE.spotLight(0xffffff,1,1300);
+spotlight.add(nwe THREE.Mesh(sphere, new THREE.MeshBasicMaterial({
+	color: 0xffffff
+})));
+spotlight.position.set(-30,30,0);
+spotlight.castShadow = true;
+spotlight.angle = Math.PI / 3;
+spotlight.penumbra = 0.55;
+spotlight.decay = 2;
+spotlight.distance = 50;
+spotlight.shadow.mapSize.width = 2024;
+spotlight.shadow.mapSize.heght = 2024;
+spotlight.shadow.camera.near = 1;
+spotlight.shadow.camera.far = 200;
+scene.add(spotlight);
+
+</script>
+
+//load cube/room texture
+var textureLoader = new THREE.TextureLoader();
+textureLoader.load('path', function(texture){
+	textture.encoding = THREE.sRGBEncoding;
+	texture.mapping = THREE.EquirectanglularReflectionMapping;
+	init(texture);
+	animate();
+});
+
+//create cube camera and cube renderer
+cubeRendererTarget1 = new THREE.WebGLCubeRenderTarget(256,{
+	format: THREE.RGBFormat,
+	generateMipmaps:true,
+	minFilter : THREE.LinearMipmapLinearFilter,
+	encoding:THREE.sRGBEncoding
+});
+
+cubeCamera1 = new THREE. CubeCamera(1,1000, cubeRenderTarget1);
+
+//near,far,render target

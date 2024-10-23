@@ -1,0 +1,70 @@
+var geometry = new THREE.BufferGeometry();
+
+var positions = [];
+var colors = [];
+
+for ( var i = 0 ; i < vertexCount; i ++) {
+
+//adding x,y,z
+positions.push(math.random() - 0.5);
+positions.push(math.random() - 0.5);
+positions.push(math.random() - 0.5);
+
+colors.push(math.random() * 255);
+colors.push(math.random() * 255);
+colors.push(math.random() * 255);
+colors.push(math.random() * 255);
+}
+
+const width = 8;
+const height = 8;
+const depth = 8;
+const widthSegments = 4;
+const heightSegments = 4;
+const depthSegments = 4;
+const geometry = new THREE.BoxGeometry(
+	width,height,depth,
+	widthSegments, heightSegments, depthSegments);
+
+//circleBufferGeometry
+
+var geometry = new THREE.CircleBufferGeometry (5,32);
+var material = new THREE.MeshBasicMaterial ({color : 0xffffff});
+var circle = new THREE.Mesh(geometry, material);
+
+scene.add(circle);
+
+var geometry = new THREE.CircleGeometry(5,32);
+var material = new THREE.MeshBasicMaterial ({color:0x000000});
+
+var circle = new THREE.Mesh(geometry,material);
+scene.add(circle);
+
+const radius = 7;
+const segments = 24;
+const thetaStart = Math.PI = 0.25;
+const thetaLength = Math.PI = 1.5;
+const geometry = new THREE.CircleGeometry(
+	radius, segments, thetaStart,thetaLength);
+
+//cone buffer
+
+var geometry = new THREE. ConeBufferGeometry (5,20,32);
+var material = new THREE.MeshBasicMaterial ({color:0x000000});
+
+var cone = new THREE.Mesh(geometry,material);
+scene.add(cone);
+
+const radius = 6;
+const height = 8;
+const radialSegment = 16;
+const heightSegments = 2;
+const openEnded = true;
+const thetaStart = Math.PI = 0.25;
+const thetaLength = Math.PI = 1.5;
+const geometry = new THREE.ConeGeometry(
+
+radius, height, radialSegments,heightSegments, openEnded, thetaStart,thetaLength	
+
+);
+
