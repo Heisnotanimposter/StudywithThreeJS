@@ -22,88 +22,88 @@ $$I = I_{\text{ambient}} + I_{\text{diffuse}} + I_{\text{specular}}$$
 \]
 
 Where:
-- \( I \) is the final intensity (color) of the pixel.
-- \( I_{\text{ambient}} \) is the ambient reflection component.
-- \( I_{\text{diffuse}} \) is the diffuse reflection component.
-- \( I_{\text{specular}} \) is the specular reflection component.
+-$$ \( I \) $$is the final intensity (color) of the pixel.
+-$$ \( I_{\text{ambient}} \) $$is the ambient reflection component.
+-$$ \( I_{\text{diffuse}} \) $$is the diffuse reflection component.
+-$$ \( I_{\text{specular}} \) $$is the specular reflection component.
 
 Let's delve into each component in detail.
 
 ---
 
-### **1. Ambient Reflection (\( I_{\text{ambient}} \))**
+### **1. Ambient Reflection $$(\( I_{\text{ambient}} \))$$**
 
 **Purpose:** Simulates the general illumination present in the environment, ensuring that objects are visible even without direct light sources.
 
 **Formula:**
 \[
-I_{\text{ambient}} = k_a \cdot I_a
+$$I_{\text{ambient}} = k_a \cdot I_a$$
 \]
 
 Where:
-- \( k_a \) is the **ambient reflectivity** of the material (a vector representing RGB components).
-- \( I_a \) is the **ambient light intensity** in the scene (a vector representing RGB components).
+$$- \( k_a \)$$ is the **ambient reflectivity** of the material (a vector representing RGB components).
+$$- \( I_a \)$$ is the **ambient light intensity** in the scene (a vector representing RGB components).
 
 **Explanation:**
 Ambient reflection ensures that all parts of an object are lit to some degree, preventing completely dark areas. It's a constant term that does not depend on the object's orientation or the light source's position.
 
 ---
 
-### **2. Diffuse Reflection (\( I_{\text{diffuse}} \))**
+### **2. Diffuse Reflection $$(\( I_{\text{diffuse}} \))$$**
 
 **Purpose:** Models the scattering of light when it hits a rough surface, resulting in a matte appearance where light is scattered uniformly in all directions.
 
 **Formula:**
 \[
-I_{\text{diffuse}} = k_d \cdot (L \cdot N) \cdot I_l
+$$I_{\text{diffuse}} = k_d \cdot (L \cdot N) \cdot I_l$$
 \]
 
 Where:
-- \( k_d \) is the **diffuse reflectivity** of the material (a vector representing RGB components).
-- \( L \) is the **normalized vector** pointing from the point on the surface to the light source.
-- \( N \) is the **normalized normal vector** at the point on the surface.
-- \( I_l \) is the **intensity of the incoming light** (a vector representing RGB components).
-- \( L \cdot N \) denotes the **dot product** between vectors \( L \) and \( N \).
+$$- \( k_d \)$$ is the **diffuse reflectivity** of the material (a vector representing RGB components).
+$$- \( L \) $$is the **normalized vector** pointing from the point on the surface to the light source.
+$$- \( N \) $$is the **normalized normal vector** at the point on the surface.
+$$- \( I_l \) $$is the **intensity of the incoming light** (a vector representing RGB components).
+$$- \( L \cdot N \) $$denotes the **dot product** between vectors $$\( L \)$$ and $$\( N \).$$
 
 **Explanation:**
-Diffuse reflection depends on the angle between the light source and the surface normal. The dot product \( L \cdot N \) calculates the cosine of this angle, determining how much light hits the surface directly. Surfaces facing the light source more directly will appear brighter due to higher diffuse reflection.
+Diffuse reflection depends on the angle between the light source and the surface normal. The dot product $$\( L \cdot N \)$$ calculates the cosine of this angle, determining how much light hits the surface directly. Surfaces facing the light source more directly will appear brighter due to higher diffuse reflection.
 
 **Clamping:**
-Since \( L \cdot N \) can be negative (when the light is coming from behind the surface), it's typically clamped to zero to avoid negative light contributions:
+Since $$\( L \cdot N \) $$can be negative (when the light is coming from behind the surface), it's typically clamped to zero to avoid negative light contributions:
 \[
-\max(L \cdot N, 0)
+$$\max(L \cdot N, 0)$$
 \]
 
 ---
 
-### **3. Specular Reflection (\( I_{\text{specular}} \))**
+### **3. Specular Reflection $$(\( I_{\text{specular}} \))$$**
 
 **Purpose:** Simulates the shiny highlights on a surface, representing the mirror-like reflection of light sources.
 
 **Formula:**
 \[
-I_{\text{specular}} = k_s \cdot (R \cdot V)^{\alpha} \cdot I_l
+$$I_{\text{specular}} = k_s \cdot (R \cdot V)^{\alpha} \cdot I_l$$
 \]
 
 Where:
-- \( k_s \) is the **specular reflectivity** of the material (a vector representing RGB components).
-- \( R \) is the **normalized reflection vector**, calculated as:
+$$- \( k_s \) $$is the **specular reflectivity** of the material (a vector representing RGB components).
+$$- \( R \)$$ is the **normalized reflection vector**, calculated as:
   \[
-  R = 2(N \cdot L)N - L
+  $$R = 2(N \cdot L)N - L$$
   \]
-- \( V \) is the **normalized view vector**, pointing from the point on the surface to the camera or viewer.
-- \( \alpha \) is the **shininess coefficient** (a scalar), determining the size and sharpness of the specular highlight.
-- \( I_l \) is the **intensity of the incoming light** (a vector representing RGB components).
-- \( R \cdot V \) denotes the **dot product** between vectors \( R \) and \( V \).
+$$- \( V \) $$is the **normalized view vector**, pointing from the point on the surface to the camera or viewer.
+$$- \( \alpha \) $$is the **shininess coefficient** (a scalar), determining the size and sharpness of the specular highlight.
+$$- \( I_l \)$$ is the **intensity of the incoming light** (a vector representing RGB components).
+$$- \( R \cdot V \) $$denotes the **dot product** between vectors $$\( R \) $$and $$\( V \)$$.
 
 **Explanation:**
-Specular reflection creates bright spots where the light reflects directly into the viewer's eye. The shininess coefficient \( \alpha \) controls how concentrated these highlights are:
-- **High \( \alpha \)**: Small, sharp highlights (simulating glossy surfaces like polished metal or plastic).
-- **Low \( \alpha \)**: Larger, duller highlights (simulating rough surfaces like matte paint).
+Specular reflection creates bright spots where the light reflects directly into the viewer's eye. The shininess coefficient $$\( \alpha \) $$controls how concentrated these highlights are:
+- **High$$ \( \alpha \)$$**: Small, sharp highlights (simulating glossy surfaces like polished metal or plastic).
+- **Low$$ \( \alpha \)$$**: Larger, duller highlights (simulating rough surfaces like matte paint).
 
-Similar to diffuse reflection, \( R \cdot V \) is clamped to zero:
+Similar to diffuse reflection, $$\( R \cdot V \)$$ is clamped to zero:
 \[
-\max(R \cdot V, 0)
+$$\max(R \cdot V, 0)$$
 \]
 
 ---
