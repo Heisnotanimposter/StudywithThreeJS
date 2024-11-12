@@ -1,0 +1,719 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <style>
+        body { margin: 0; overflow: hidden; }
+        canvas { display: block; }
+        .trackpad {
+            position: fixed;
+            bottom: 30px;
+            right: 30px;
+            width: 100px;
+            height: 100px;
+            border-radius: 50%;
+            background-color: rgba(100, 100, 100, 0.3);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        .control-circle {
+            width: 40px;
+            height: 40px;
+            background-color: rgba(255, 255, 255, 0.7);
+            border-radius: 50%;
+            cursor: pointer;
+            position: relative;
+        }
+    </style>
+</head>
+<body>
+    <script src="./three.js"></script>
+    <script src="./OrbitControls.js"></script>
+    <script src="./dat.gui.js"></script>
+
+    <div class="trackpad" id="trackpad">
+        <div class="control-circle" id="controlCircle"></div>
+    </div>
+
+    <script>
+        const scene = new THREE.Scene();
+        scene.background = new THREE.Color(0x87CEEB);
+
+        const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.01, 1000);
+        camera.position.set(0, 20, 40);
+        const povRenderer = new THREE.WebGLRenderer({ alpha: true });
+        povRenderer.setSize(200, 150); 
+        povRenderer.domElement.style.position = 'absolute';
+        povRenderer.domElement.style.bottom = '10px';
+        povRenderer.domElement.style.left = '10px';
+        document.body.appendChild(povRenderer.domElement);
+
+        const characterPOVCamera = new THREE.PerspectiveCamera(45, 4 / 3, 0.1, 1000);
+        characterPOVCamera.position.set(0, 5, 0);
+
+        const renderer = new THREE.WebGLRenderer();
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.shadowMap.enabled = true;
+        document.body.appendChild(renderer.domElement);
+
+        const gui = new dat.GUI();
+        const orbitControls = new THREE.OrbitControls(camera, renderer.domElement);
+        const controlsFolder = gui.addFolder("Controls");
+        controlsFolder.add({ message: "Use W, A, S, D to move" }, "message").name("Guide1");
+        controlsFolder.add({ message: "Use Trackpad to move" }, "message").name("Guide2");
+        controlsFolder.open();
+
+        const textureLoader = new THREE.TextureLoader();
+        const wallTexture = textureLoader.load('./wall_texture.jpg');
+        wallTexture.wrapS = wallTexture.wrapT = THREE.RepeatWrapping;
+        wallTexture.repeat.set(5, 5);
+
+        const grassTexture = textureLoader.load('./grass_texture.jpg'); 
+        grassTexture.wrapS = grassTexture.wrapT = THREE.RepeatWrapping;
+        grassTexture.repeat.set(50, 50);
+
+        const windowTexture = textureLoader.load('./window_texture.jpg');
+        windowTexture.wrapS = windowTexture.wrapT = THREE.ClampToEdgeWrapping;
+
+        const ufoGroup = new THREE.Group();
+
+        const ufoCurvePoints = [
+            new THREE.Vector3(-10, 133, -10),
+            new THREE.Vector3(-15, 133, 0),
+            new THREE.Vector3(-10, 133, 10),
+            new THREE.Vector3(0, 133, 15),
+            new THREE.Vector3(10, 133, 10),
+            new THREE.Vector3(15, 133, 0),
+            new THREE.Vector3(10, 133, -10),
+            new THREE.Vector3(0, 133, -15),
+            new THREE.Vector3(-10, 133, -10),
+        ];
+        const ufoCurve = new THREE.CatmullRomCurve3(ufoCurvePoints);
+        const ufoCurveGeometry = new THREE.TubeGeometry(ufoCurve, 11, 1, 11, true);
+        const ufoCurveMaterial = new THREE.MeshBasicMaterial({ color: 0x00ffff });
+        const ufoCurveMesh = new THREE.Mesh(ufoCurveGeometry, ufoCurveMaterial);
+        ufoGroup.add(ufoCurveMesh);
+
+        const UFOFunction = (u, v, target) => {
+            const radius = 6;
+            const height = 3;
+            const x = radius * Math.sin(u * Math.PI) * Math.cos(v * Math.PI * 2);
+            const y = height * Math.cos(u * Math.PI); 
+            const z = radius * Math.sin(u * Math.PI) * Math.sin(v * Math.PI * 2);
+            target.set(x, y + 130, z); 
+        };
+        const ufoGeometry = new THREE.ParametricGeometry(UFOFunction, 25, 25);
+        const ufoMaterial = new THREE.MeshBasicMaterial({ color: 0xffffff, wireframe: true });
+        const ufoMesh = new THREE.Mesh(ufoGeometry, ufoMaterial);
+        ufoGroup.add(ufoMesh);
+        function setupUFOLights() {
+
+    const spotLight = new THREE.SpotLight(0xffffff, 1);
+    spotLight.position.set(0, 135, 0);
+    spotLight.target.position.set(0, 125, 0);
+    ufoGroup.add(spotLight);
+
+    const pointLight = new THREE.PointLight(0xff0000, 1, 100, 1);
+    pointLight.position.set(5, 135, 5);
+    ufoGroup.add(pointLight);
+    
+    const hemisphereLight = new THREE.HemisphereLight(0xf29886, 0x000000, 1);
+    hemisphereLight.position.set(0, 145, 0);
+    ufoGroup.add(hemisphereLight);
+}
+
+setupUFOLights();
+scene.add(ufoGroup);
+
+const trackpad = document.getElementById("trackpad");
+const controlCircle = document.getElementById("controlCircle");
+let isDragging = false;
+let startX, startY;
+const ufoSpeedFactor = 0.1;
+
+trackpad.addEventListener("mousedown", (event) => {
+    isDragging = false;
+    startX = event.clientX;
+    startY = event.clientY;
+});
+
+window.addEventListener("mousemove", (event) => {
+    if (!isDragging) return;
+
+    const dx = event.clientX - startX;
+    const dy = event.clientY - startY;
+    const distance = Math.sqrt(dx * dx + dy * dy);
+
+    const trackpadRadius = 50;
+    const angle = Math.atan2(dy, dx);
+    const circleX = Math.min(distance, trackpadRadius) * Math.cos(angle);
+    const circleY = Math.min(distance, trackpadRadius) * Math.sin(angle);
+
+    controlCircle.style.transform = `translate(${circleX}px, ${circleY}px)`;
+
+    ufoGroup.position.x += dx * ufoSpeedFactor;
+    ufoGroup.position.z += dy * ufoSpeedFactor;
+
+    startX = event.clientX;
+    startY = event.clientY;
+});
+
+window.addEventListener("mouseup", () => {
+    isDragging = true;
+    controlCircle.style.transform = `translate(0px, 0px)`;
+});        const materials = {
+            floor: new THREE.MeshPhongMaterial({ map: grassTexture }),
+            wall: new THREE.MeshPhongMaterial({ map: wallTexture, side: THREE.DoubleSide }),
+            door: new THREE.MeshPhongMaterial({ color: 0x8B4513 }),
+            stair: new THREE.MeshPhongMaterial({ color: 0x696969 }),
+            character: new THREE.MeshPhongMaterial({ color: 0xffd700 }),
+            treeTrunk: new THREE.MeshPhongMaterial({ color: 0x8B4513 }),
+            treeLeaves: new THREE.MeshPhongMaterial({ color: 0x228B22 }),
+            white: new THREE.MeshPhongMaterial({ color: 0xffffff }),
+            window: new THREE.MeshPhongMaterial({ map: windowTexture, side: THREE.DoubleSide }),
+            entrance: new THREE.MeshPhongMaterial({ color: 0x333333 }),
+            step: new THREE.MeshPhongMaterial({ color: 0x555555 }),
+            sign: new THREE.MeshBasicMaterial({ color: 0x0000FF }),
+            tail: new THREE.MeshPhongMaterial({ color: 0x00008B }),
+
+        };
+
+        function setupRoom() {
+            createFloor();
+            createWalls();
+            createDoor();
+            createStairs();
+            createFurniture();
+        }
+
+        function createFloor() {
+            const floor = new THREE.Mesh(new THREE.PlaneGeometry(200, 200), materials.floor);
+            floor.rotation.x = -Math.PI / 2;
+            floor.receiveShadow = true;
+            scene.add(floor);
+        }
+
+        function createWalls() {
+            const wallData = [
+                { x: 0, y: 5, z: -50, width: 100, height: 30, rotationY: Math.PI },
+                { x: -50, y: 5, z: 0, width: 100, height: 30, rotationY: Math.PI / 2 },
+                { x: 50, y: 5, z: 0, width: 100, height: 30, rotationY: Math.PI / 2 },
+                { x: 0, y: 5, z: 50, width: 100, height: 30 }
+            ];
+            wallData.forEach(({ x, y, z, width, height, rotationY = 0 }) => {
+                const wall = new THREE.Mesh(new THREE.PlaneGeometry(width, height), materials.wall);
+                wall.position.set(x, y, z);
+                wall.rotation.y = rotationY;
+                wall.receiveShadow = true;
+                scene.add(wall);
+            });
+        }
+
+        function createDoor() {
+            const door = new THREE.Mesh(new THREE.BoxGeometry(10, 15, 0.5), materials.door);
+            door.position.set(0, 7.5, 50);
+            scene.add(door);
+        }
+
+        function createStairs() {
+            for (let i = 0; i < 10; i++) {
+                const stair = new THREE.Mesh(new THREE.BoxGeometry(10, 1, 3), materials.stair);
+                stair.position.set(0, i * 0.5, 10 - i * 3);
+                stair.castShadow = true;
+                stair.receiveShadow = true;
+                scene.add(stair);
+            }
+        }
+
+        function createFurniture() {
+            const deskMaterial = materials.white;
+            const chairMaterial = new THREE.MeshPhongMaterial({ color: 0x333333 });
+            const positions = [[-10, 0, -20], [0, 0, -20], [10, 0, -20]]; 
+
+            positions.forEach(([x, y, z]) => {
+                const desk = new THREE.Mesh(new THREE.BoxGeometry(6, 3, 3), deskMaterial);
+                desk.position.set(x, y + 1, z);
+                scene.add(desk);
+
+                const chair = new THREE.Mesh(new THREE.BoxGeometry(2, 1, 2), chairMaterial);
+                chair.position.set(x, y + 0.5, z - 1.5);
+                scene.add(chair);
+            });
+        }
+
+        function createBuilding() {
+            const buildingGroup = new THREE.Group();
+            const floorCount = 2;
+            const buildingWidth = 80;
+            const buildingHeight = 30;
+            const buildingDepth = 15 * 2.5;
+
+            for (let floor = 0; floor < floorCount; floor++) {
+                const floorY = 15 + floor * buildingHeight;
+                const building = new THREE.Mesh(new THREE.BoxGeometry(buildingWidth, buildingHeight, buildingDepth), materials.wall);
+                building.position.set(0, floorY, 0);
+                building.castShadow = true;
+                buildingGroup.add(building);
+
+                const windowRows = 2;
+                const windowsPerRow = 6;
+                const windowSpacing = 13;
+                const windowHeightSpacing = 10;
+
+                for (let row = 0; row < windowRows; row++) {
+                    for (let i = 0; i < windowsPerRow; i++) {
+                        const window = new THREE.Mesh(new THREE.PlaneGeometry(8, 5), materials.window);
+                        window.position.set(
+                            -35 + i * windowSpacing,
+                            5 + row * windowHeightSpacing + floor * buildingHeight,
+                            buildingDepth / 2 + 0.1
+                        );
+                        buildingGroup.add(window);
+                    }
+                }
+            }
+
+            const entrance = new THREE.Mesh(new THREE.BoxGeometry(15, 10, 1), materials.entrance);
+            entrance.position.set(0, 5, buildingDepth / 2 + 0.6);
+            buildingGroup.add(entrance);
+
+            const step = new THREE.Mesh(new THREE.BoxGeometry(20, 1, 5), materials.step);
+            step.position.set(0, 0.5, buildingDepth / 2 + 3.5);
+            buildingGroup.add(step);
+
+            add3DText('School of Computer Science', new THREE.Vector3(0, 30 * floorCount - 5, buildingDepth / 2 + 3), 'blue', buildingGroup);
+            scene.add(buildingGroup);
+        }
+
+        function add3DText(message, position, color, buildingGroup) {
+            const canvas = document.createElement('canvas');
+            const context = canvas.getContext('2d');
+            canvas.width = 1024;
+            canvas.height = 256;
+            context.font = 'Bold 70px Arial';
+            context.fillStyle = color;
+            context.textAlign = 'center';
+            context.textBaseline = 'middle';
+            context.fillText(message, canvas.width / 2, canvas.height / 2);
+
+            const texture = new THREE.CanvasTexture(canvas);
+            const material = new THREE.MeshBasicMaterial({ map: texture, transparent: true, side: THREE.DoubleSide });
+            const geometry = new THREE.PlaneGeometry(40, 10);
+            const textMesh = new THREE.Mesh(geometry, material);
+
+            textMesh.position.set(position.x, position.y, position.z + 2);
+            buildingGroup.add(textMesh);
+        }
+
+        function setupLights() {
+            createAmbientLight();
+            createDirectionalLight();
+            createPointLight();
+            createSpotLight();
+            createHemisphereLight();
+            createRectAreaLight();
+        }
+
+        function createAmbientLight() {
+            const ambientLight = new THREE.AmbientLight(0xf0f0f0, 1);
+            ambientLight.visible = false;
+            scene.add(ambientLight);
+            gui.add(ambientLight, "visible").name("Ambient Light");
+        }
+
+        function createDirectionalLight() {
+            const directionalLight = new THREE.DirectionalLight(0xffffff, 1);
+            directionalLight.position.set(5, 125, 0);
+            directionalLight.castShadow = true;
+            scene.add(directionalLight);
+
+            const dhelper = new THREE.DirectionalLightHelper(directionalLight, 5);
+            scene.add(dhelper);
+
+            gui.add(directionalLight, "visible").name("Directional Light");
+            gui.add(dhelper, "visible").name("D-Light Helper");
+        }
+
+        function createPointLight() {
+            const pointLight = new THREE.PointLight(0xffffff, 1, 100, 1);
+            pointLight.position.set(-3, 125, 3);
+            pointLight.castShadow = true;
+            scene.add(pointLight);
+
+            const pointLightHelper = new THREE.PointLightHelper(pointLight, 1);
+            scene.add(pointLightHelper);
+
+            gui.add(pointLight, "visible").name("Point Light");
+            gui.add(pointLightHelper, "visible").name("P-Light Helper");
+        }
+
+        function createSpotLight() {
+            const spotLight = new THREE.SpotLight(0xffffff, 1);
+            spotLight.position.set(0, 125, 5);
+            spotLight.castShadow = true;
+            scene.add(spotLight);
+
+            const spotLightHelper = new THREE.SpotLightHelper(spotLight);
+            scene.add(spotLightHelper);
+
+            gui.add(spotLight, "visible").name("Spot Light");
+            gui.add(spotLightHelper, "visible").name("S-Light Helper");
+        }
+
+        function createHemisphereLight() {
+            const hemisphereLight = new THREE.HemisphereLight(0xf29886, 0x000000, 1);
+            hemisphereLight.visible = true;
+            scene.add(hemisphereLight);
+
+            const hemisphereLightHelper = new THREE.HemisphereLightHelper(hemisphereLight, 5);
+            hemisphereLightHelper.visible = true;
+            scene.add(hemisphereLightHelper);
+
+            gui.add(hemisphereLight, "visible").name("Hemisphere Light");
+            gui.add(hemisphereLightHelper, "visible").name("H-Light Helper");
+        }
+
+        function createRectAreaLight() {
+            const rectAreaLight = new THREE.RectAreaLight(0xffffff, 1, 20, 20);
+            rectAreaLight.position.set(5, 125, 0);
+            rectAreaLight.lookAt(0, 0, 0);
+            rectAreaLight.visible = true;
+            scene.add(rectAreaLight);
+            
+            gui.add(rectAreaLight, "visible").name("Rect Area Light");
+        }
+
+        function createCharacter() {
+    const characterGroup = new THREE.Group();
+    const body = new THREE.Mesh(new THREE.CylinderGeometry(1.5, 1.5, 5, 32), materials.character);
+    body.position.y = 2.5;
+    const head = new THREE.Mesh(new THREE.SphereGeometry(1.5, 32, 32), materials.character);
+    head.position.y = 6.5;
+
+    characterGroup.add(body, head);
+
+    characterPOVCamera.position.set(0, 6.5, -5);
+    characterPOVCamera.lookAt(0, 6.5, 10); 
+    characterGroup.add(characterPOVCamera); 
+
+    characterGroup.position.set(0, 0, 45);
+    scene.add(characterGroup);
+    return characterGroup;
+}
+        function updateCharacterPOVCamera() {
+    characterPOVCamera.position.copy(characterGroup.position);
+    characterPOVCamera.position.y += 5; 
+    characterPOVCamera.lookAt(0, 5, 0); 
+    characterGroup.add(characterPOVCamera); 
+}
+const characterGroup = createCharacter();
+const mouse = new THREE.Vector2();
+function onMouseMove(event) {
+    mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
+    mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
+    for (const intersect of intersects) {
+    }
+}
+window.addEventListener('mousemove', onMouseMove, false);
+        function applyKeyboardControls() {
+            const speed = 0.3; 
+            if (keyState['w']) characterGroup.position.z -= speed;
+            if (keyState['s']) characterGroup.position.z += speed;
+            if (keyState['a']) characterGroup.position.x -= speed;
+            if (keyState['d']) characterGroup.position.x += speed;
+        }
+
+        const keyState = {}; 
+        document.addEventListener('keydown', (event) => { keyState[event.key.toLowerCase()] = true; });
+        document.addEventListener('keyup', (event) => { keyState[event.key.toLowerCase()] = false; });
+
+        function createParkingLot(x = 0, y = 0.15, z = 75) {
+    const asphaltMaterial = new THREE.MeshPhongMaterial({ color: 0x333333 });
+    const parkingLot = new THREE.Mesh(
+        new THREE.PlaneGeometry(100, 230),
+        asphaltMaterial
+    );
+    parkingLot.rotation.x = -Math.PI / 2;
+    parkingLot.position.set(x, y, z);
+    parkingLot.receiveShadow = true;
+    scene.add(parkingLot);
+
+    const lineMaterial = new THREE.LineBasicMaterial({ color: 0xffffff });
+    const spacing = 10; 
+
+    for (let i = -5; i <= 5; i++) {
+        const lineGeometryH = new THREE.BufferGeometry().setFromPoints([
+            new THREE.Vector3(-50 + x, y + 0.5, i * spacing + z),
+            new THREE.Vector3(50 + x, y + 0.5, i * spacing + z)
+        ]);
+        if (isValidVector3(lineGeometryH)) { 
+            const horizontalLine = new THREE.Line(lineGeometryH, lineMaterial);
+            scene.add(horizontalLine);
+        }
+    }
+
+    for (let j = -5; j <= 5; j++) {
+        const lineGeometryV = new THREE.BufferGeometry().setFromPoints([
+            new THREE.Vector3(j * spacing + x, y + 0.5, -50 + z),
+            new THREE.Vector3(j * spacing + x, y + 0.5, 50 + z)
+        ]);
+        if (isValidVector3(lineGeometryV)) { 
+            const verticalLine = new THREE.Line(lineGeometryV, lineMaterial);
+            scene.add(verticalLine);
+        }
+    }
+}
+
+function isValidVector3(geometry) {
+    const position = geometry.attributes.position;
+    for (let i = 0; i < position.count; i++) {
+        const x = position.getX(i);
+        const y = position.getY(i);
+        const z = position.getZ(i);
+        if (isNaN(x) || isNaN(y) || isNaN(z)) return false;
+    }
+    return true;
+}
+function createSedan(x, y, z, rotationY = 0) {
+    const carGroup = new THREE.Group();
+    carGroup.position.set(x, y, z);
+    carGroup.rotation.y = rotationY;
+
+    const bodyMaterial = new THREE.MeshPhongMaterial({ color: Math.random() * 0xffffff });
+    const wheelMaterial = new THREE.MeshPhongMaterial({ color: 0x333333 });
+
+    const body = new THREE.Mesh(new THREE.BoxGeometry(4, 1.2, 2), bodyMaterial);
+    const roof = new THREE.Mesh(new THREE.BoxGeometry(2.5, 0.7, 2), bodyMaterial);
+    roof.position.set(0, 0.85, 0);
+    body.add(roof);
+
+    const wheelPositions = [
+        [-1.5, -0.5, 0.9],
+        [1.5, -0.5, 0.9],
+        [-1.5, -0.5, -0.9],
+        [1.5, -0.5, -0.9]
+    ];
+    wheelPositions.forEach(([wx, wy, wz]) => {
+        const wheel = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.5, 0.5, 32), wheelMaterial);
+        wheel.rotation.x = Math.PI / 2;
+        wheel.position.set(wx, wy + 0.5, wz);
+        body.add(wheel);
+    });
+
+    carGroup.add(body);
+    scene.add(carGroup);
+}
+
+function createSUV(x, y, z, rotationY = 0) {
+    const carGroup = new THREE.Group();
+    carGroup.position.set(x, y, z);
+    carGroup.rotation.y = rotationY;
+
+    const bodyMaterial = new THREE.MeshPhongMaterial({ color: 0xffffff });
+    const wheelMaterial = new THREE.MeshPhongMaterial({ color: 0x333333 });
+
+    const body = new THREE.Mesh(new THREE.BoxGeometry(4.5, 1.8, 2.2), bodyMaterial);
+    const roof = new THREE.Mesh(new THREE.BoxGeometry(3, 1.8, 2.2), bodyMaterial);
+    roof.position.set(0, 1, 0);
+    body.add(roof);
+
+    const wheelPositions = [
+        [-1.8, -0.8, 1.1],
+        [1.8, -0.8, 1.1],
+        [-1.8, -0.8, -1.1],
+        [1.8, -0.8, -1.1]
+    ];
+    wheelPositions.forEach(([wx, wy, wz]) => {
+        const wheel = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.5, 0.5, 32), wheelMaterial);
+        wheel.rotation.x = Math.PI / 2;
+        wheel.position.set(wx, wy + 0.5, wz);
+        body.add(wheel);
+    });
+
+    carGroup.add(body);
+    scene.add(carGroup);
+}
+
+function createLightweightVehicle(x, y, z, rotationY = 0) {
+    const carGroup = new THREE.Group();
+    carGroup.position.set(x, y, z);
+    carGroup.rotation.y = rotationY;
+
+    const bodyMaterial = new THREE.MeshPhongMaterial({ color: 0x000000 });
+    const wheelMaterial = new THREE.MeshPhongMaterial({ color: 0x333333 });
+
+    const body = new THREE.Mesh(new THREE.BoxGeometry(3, 1, 1.5), bodyMaterial);
+    const roof = new THREE.Mesh(new THREE.BoxGeometry(2, 0.5, 1.5), bodyMaterial);
+    roof.position.set(0, 0.65, 0);
+    body.add(roof);
+
+    const wheelPositions = [
+        [-1.2, -0.5, 0.75],
+        [1.2, -0.5, 0.75],
+        [-1.2, -0.5, -0.75],
+        [1.2, -0.5, -0.75]
+    ];
+    wheelPositions.forEach(([wx, wy, wz]) => {
+        const wheel = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.5, 0.5, 32), wheelMaterial);
+        wheel.rotation.x = Math.PI / 2;
+        wheel.position.set(wx, wy + 0.5, wz);
+        body.add(wheel);
+    });
+
+    carGroup.add(body);
+    scene.add(carGroup);
+}
+
+createSedan(-20, 1, 80);
+createSedan(-20, 1, 85);
+createSedan(-20, 1, 90);
+createSedan(-20, 1, 95);
+createSUV(-20, 1, 100);
+createSUV(-20, 1, 105);
+createLightweightVehicle(-20, 1, 110);
+createLightweightVehicle(-20, 1, 115);
+
+createSedan(-30, 1, 80, Math.PI / 2);
+createSedan(-30, 1, 85, Math.PI / 2);
+createSedan(-30, 1, 90, Math.PI / 2);
+createSedan(-30, 1, 95, Math.PI / 2);
+createSUV(-30, 1, 100, Math.PI / 2);
+createSUV(-30, 1, 105, Math.PI / 2);
+createLightweightVehicle(-30, 1, 110, Math.PI / 2);
+createLightweightVehicle(-30, 1, 115, Math.PI / 2);
+
+createSedan(-35, 1, 80, Math.PI / 2);
+createSedan(-35, 1, 85, Math.PI / 2);
+createSedan(-35, 1, 90, Math.PI / 2);
+createSedan(-35, 1, 95, Math.PI / 2);
+createSUV(-35, 1, 100, Math.PI / 2);
+createSUV(-35, 1, 105, Math.PI / 2);
+createLightweightVehicle(-35, 1, 110, Math.PI / 2);
+createLightweightVehicle(-35, 1, 115, Math.PI / 2);
+
+createSedan(-45, 1, 55, Math.PI / 2);
+createSedan(-40, 1, 55, Math.PI / 2);
+
+createSedan(-35, 1, 55, Math.PI / 2);
+createSedan(-30, 1, 55, Math.PI / 2);
+createSedan(-25, 1, 55, Math.PI / 2);
+createSUV(-20, 1, 55, Math.PI / 2);
+createSUV(-15, 1, 55, Math.PI / 2);
+createLightweightVehicle(-10, 1, 55, Math.PI / 2);
+createLightweightVehicle(-5, 1, 55, Math.PI / 2);
+function createOutdoorElements() {
+            const ground = new THREE.Mesh(new THREE.PlaneGeometry(500, 500), materials.floor);
+            ground.rotation.x = -Math.PI / 2;
+            ground.position.y = -0.1;
+            ground.receiveShadow = true;
+            scene.add(ground);
+
+            const treePositions = [
+        [-50, 0, -80],
+        [105, 0, -95],
+        [-70, 0, 10],
+        [80, 0, 50],
+        [-89, 0, -20],
+        [69, 0, -0],
+        [-79, 0, 60],
+        [89, 0, 90],
+        [-15, 0, 110],
+        [-5, 0, 115],
+        [5, 0, 110],
+        [15, 0, 115],
+        [-25, 0, 120],
+        [-15, 0, 125],
+        [15, 0, 120],
+        [25, 0, 125]
+    ];
+    treePositions.forEach(([x, y, z], index) => {
+        const trunk = new THREE.Mesh(new THREE.CylinderGeometry(1, 1, 10, 32), materials.treeTrunk);
+        trunk.position.set(x, y + 5, z);
+        trunk.castShadow = true;
+
+        const leaves = new THREE.Mesh(new THREE.SphereGeometry(5, 32, 32), materials.treeLeaves);
+        leaves.position.set(x, y + 15, z);
+        leaves.castShadow = true;
+
+        scene.add(trunk);
+        scene.add(leaves);
+
+        const magpieCount = Math.floor(Math.random() * 3) + 1;
+        for (let i = 0; i < magpieCount; i++) {
+            const offsetX = (Math.random() - 0.5) * 2; 
+            const offsetZ = (Math.random() - 0.5) * 2;
+            createMagpie(x + offsetX + 3, y + 10, z + offsetZ);
+        }
+    });
+}
+
+const magpies = [];
+const clock = new THREE.Clock();
+
+function createMagpie(x, y, z) {
+            const magpie = new THREE.Group();
+            const body = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.5, 1.5), new THREE.MeshPhongMaterial({ color: 0x000000 }));
+            body.position.set(0, 0.75, 0);
+            magpie.add(body);
+
+            const head = new THREE.Mesh(new THREE.SphereGeometry(0.3), new THREE.MeshPhongMaterial({ color: 0x000000 }));
+            head.position.set(0, 1.5, 0);
+            magpie.add(head);
+
+            const wingGeometry = new THREE.PlaneGeometry(1, 0.5);
+            const wingMaterial = new THREE.MeshPhongMaterial({ color: 0x000000, side: THREE.DoubleSide });
+            const leftWing = new THREE.Mesh(wingGeometry, wingMaterial);
+            leftWing.position.set(-0.5, 0.75, 0);
+            leftWing.rotation.y = Math.PI / 6;
+            const rightWing = new THREE.Mesh(wingGeometry, wingMaterial);
+            rightWing.position.set(0.5, 0.75, 0);
+            rightWing.rotation.y = -Math.PI / 6;
+            magpie.add(leftWing, rightWing);
+
+            const tail = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.5, 1), materials.tail);
+            tail.position.set(0, 0.25, 1);  
+            tail.rotation.x = Math.PI / 2;
+            magpie.add(tail);
+
+            magpie.position.set(x, y, z);
+            scene.add(magpie);
+
+            magpies.push({ magpie, leftWing, rightWing });
+        }
+
+        function animateMagpies() {
+            const delta = clock.getDelta();
+            const time = clock.getElapsedTime();
+
+            magpies.forEach(({ magpie, leftWing, rightWing }) => {
+                const wingRotation = Math.sin(time * 10) * Math.PI / 8;
+                leftWing.rotation.z = wingRotation;
+                rightWing.rotation.z = -wingRotation;
+                magpie.position.y = 0.2 + Math.sin(time * 2) * 0.5;
+            });
+        }
+        createMagpie(5, 110, 60);
+        createMagpie(-5, 112, 65);
+
+        function animate() {
+            requestAnimationFrame(animate);
+            orbitControls.update();
+            applyKeyboardControls();
+            animateMagpies();
+
+            renderer.render(scene, camera);
+            povRenderer.render(scene, characterPOVCamera);
+
+        }
+
+        setupRoom();
+        setupLights();
+        createBuilding();
+        createOutdoorElements();
+        createParkingLot();
+        animate();
+
+    </script>
+</body>
+</html>
