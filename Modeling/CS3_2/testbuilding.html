@@ -1,0 +1,351 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <style>
+        body { margin: 0; overflow: hidden; }
+        canvas { display: block; }
+    </style>
+</head>
+<body>
+    <script src="./three.js"></script>
+    <script src="./OrbitControls.js"></script>
+    <script src="./dat.gui.js"></script>
+
+    <script>
+        // Scene, Camera, and Renderer Setup
+        const scene = new THREE.Scene();
+        scene.background = new THREE.Color(0x87CEEB);
+
+        const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 1000);
+        camera.position.set(100, 50, 150);
+        camera.lookAt(0, 20, 0);
+
+        const renderer = new THREE.WebGLRenderer();
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.shadowMap.enabled = true;
+        document.body.appendChild(renderer.domElement);
+
+        const orbitControls = new THREE.OrbitControls(camera, renderer.domElement);
+
+        // Texture Loader and Material Definitions
+        const textureLoader = new THREE.TextureLoader();
+        const wallTexture = textureLoader.load('./concrete_texture.jpg');
+        wallTexture.wrapS = wallTexture.wrapT = THREE.RepeatWrapping;
+        wallTexture.repeat.set(4, 2);
+
+        const grassTexture = textureLoader.load('./grass_texture.jpg');
+        grassTexture.wrapS = grassTexture.wrapT = THREE.RepeatWrapping;
+        grassTexture.repeat.set(50, 50);
+
+        const windowTexture = textureLoader.load('./window_texture.jpg');
+        windowTexture.wrapS = windowTexture.wrapT = THREE.ClampToEdgeWrapping;
+
+        const materials = {
+            wall: new THREE.MeshPhongMaterial({ map: wallTexture }),
+            window: new THREE.MeshPhongMaterial({ map: windowTexture, side: THREE.DoubleSide }),
+            entrance: new THREE.MeshPhongMaterial({ color: 0x333333 }),
+            step: new THREE.MeshPhongMaterial({ color: 0x555555 }),
+            sign: new THREE.MeshBasicMaterial({ color: 0x0000FF }),
+            floor: new THREE.MeshPhongMaterial({ map: grassTexture }),
+            treeTrunk: new THREE.MeshPhongMaterial({ color: 0x8B4513 }),
+            treeLeaves: new THREE.MeshPhongMaterial({ color: 0x228B22 }),
+        };
+
+        // Building Creation Function
+        function createBuilding() {
+            const buildingGroup = new THREE.Group();
+            const floorCount = 2;
+            const buildingWidth = 80;
+            const buildingHeight = 30;
+            const buildingDepth = 15 * 2.5;
+
+            for (let floor = 0; floor < floorCount; floor++) {
+                const floorY = 15 + floor * buildingHeight;
+                const building = new THREE.Mesh(new THREE.BoxGeometry(buildingWidth, buildingHeight, buildingDepth), materials.wall);
+                building.position.set(0, floorY, 0);
+                building.castShadow = true;
+                buildingGroup.add(building);
+
+                const windowRows = 2;
+                const windowsPerRow = 6;
+                const windowSpacing = 13;
+                const windowHeightSpacing = 10;
+
+                for (let row = 0; row < windowRows; row++) {
+                    for (let i = 0; i < windowsPerRow; i++) {
+                        const window = new THREE.Mesh(new THREE.PlaneGeometry(8, 5), materials.window);
+                        window.position.set(
+                            -35 + i * windowSpacing,
+                            5 + row * windowHeightSpacing + floor * buildingHeight,
+                            buildingDepth / 2 + 0.1
+                        );
+                        buildingGroup.add(window);
+                    }
+                }
+            }
+
+            const entrance = new THREE.Mesh(new THREE.BoxGeometry(15, 10, 1), materials.entrance);
+            entrance.position.set(0, 5, buildingDepth / 2 + 0.6);
+            buildingGroup.add(entrance);
+
+            const step = new THREE.Mesh(new THREE.BoxGeometry(20, 1, 5), materials.step);
+            step.position.set(0, 0.5, buildingDepth / 2 + 3.5);
+            buildingGroup.add(step);
+
+            add3DText('School of Computer Science', new THREE.Vector3(0, 30 * floorCount - 5, buildingDepth / 2 + 3), 'blue', buildingGroup);
+            scene.add(buildingGroup);
+        }
+
+        function add3DText(message, position, color, buildingGroup) {
+            const canvas = document.createElement('canvas');
+            const context = canvas.getContext('2d');
+            canvas.width = 1024;
+            canvas.height = 256;
+            context.font = 'Bold 70px Arial';
+            context.fillStyle = color;
+            context.textAlign = 'center';
+            context.textBaseline = 'middle';
+            context.fillText(message, canvas.width / 2, canvas.height / 2);
+
+            const texture = new THREE.CanvasTexture(canvas);
+            const material = new THREE.MeshBasicMaterial({ map: texture, transparent: true, side: THREE.DoubleSide });
+            const geometry = new THREE.PlaneGeometry(40, 10);
+            const textMesh = new THREE.Mesh(geometry, material);
+
+            textMesh.position.set(position.x, position.y, position.z + 2);
+            buildingGroup.add(textMesh);
+        }
+
+        // Ground Plane
+        function createGround() {
+            const ground = new THREE.Mesh(new THREE.PlaneGeometry(500, 500), materials.floor);
+            ground.rotation.x = -Math.PI / 2;
+            ground.position.y = -0.1;
+            ground.receiveShadow = true;
+            scene.add(ground);
+        }
+
+        // Outdoor Elements with Random Tree Placement and Magpies
+        function createOutdoorElements() {
+            createGround();
+
+            const treePositions = [
+                [-50, 0, -80], [105, 0, -95], [-70, 0, 10], [80, 0, 50],
+                [-89, 0, -20], [69, 0, -0], [-79, 0, 60], [89, 0, 90],
+                [-15, 0, 110], [-5, 0, 115], [5, 0, 110], [15, 0, 115],
+                [-25, 0, 120], [-15, 0, 125], [15, 0, 120], [25, 0, 125]
+            ];
+
+            treePositions.forEach(([x, y, z]) => {
+                const trunk = new THREE.Mesh(new THREE.CylinderGeometry(1, 1, 10, 32), materials.treeTrunk);
+                trunk.position.set(x, y + 5, z);
+                trunk.castShadow = true;
+
+                const leaves = new THREE.Mesh(new THREE.SphereGeometry(5, 32, 32), materials.treeLeaves);
+                leaves.position.set(x, y + 15, z);
+                leaves.castShadow = true;
+
+                scene.add(trunk, leaves);
+
+                const magpieCount = Math.floor(Math.random() * 3) + 1;
+                for (let i = 0; i < magpieCount; i++) {
+                    const offsetX = (Math.random() - 0.5) * 2;
+                    const offsetZ = (Math.random() - 0.5) * 2;
+                    createMagpie(x + offsetX, y + 10 + Math.random() * 3, z + offsetZ);
+                }
+            });
+        }
+
+        const magpies = [];
+        const clock = new THREE.Clock();
+
+        function createMagpie(x, y, z) {
+            const magpie = new THREE.Group();
+            const body = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.5, 1.5), new THREE.MeshPhongMaterial({ color: 0x000000 }));
+            body.position.set(0, 0.75, 0);
+            magpie.add(body);
+
+            const head = new THREE.Mesh(new THREE.SphereGeometry(0.3), new THREE.MeshPhongMaterial({ color: 0x000000 }));
+            head.position.set(0, 1.5, 0);
+            magpie.add(head);
+
+            const wingGeometry = new THREE.PlaneGeometry(1, 0.5);
+            const wingMaterial = new THREE.MeshPhongMaterial({ color: 0x000000, side: THREE.DoubleSide });
+            const leftWing = new THREE.Mesh(wingGeometry, wingMaterial);
+            leftWing.position.set(-0.5, 0.75, 0);
+            leftWing.rotation.y = Math.PI / 6;
+            const rightWing = new THREE.Mesh(wingGeometry, wingMaterial);
+            rightWing.position.set(0.5, 0.75, 0);
+            rightWing.rotation.y = -Math.PI / 6;
+
+            magpie.add(leftWing, rightWing);
+            magpie.position.set(x, y, z);
+            scene.add(magpie);
+            magpies.push({ magpie, leftWing, rightWing });
+        }
+
+        function animateMagpies() {
+            const time = clock.getElapsedTime();
+            magpies.forEach(({ magpie, leftWing, rightWing }) => {
+                const wingRotation = Math.sin(time * 10) * Math.PI / 8;
+                leftWing.rotation.z = wingRotation;
+                rightWing.rotation.z = -wingRotation;
+                magpie.position.y = 1 + Math.sin(time * 2) * 0.1;
+            });
+        }
+
+        // Lighting Setup
+        function setupLights() {
+            const ambientLight = new THREE.AmbientLight(0xf0f0f0, 0.5);
+            scene.add(ambientLight);
+
+            const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
+            directionalLight.position.set(100, 100, 100);
+            directionalLight.castShadow = true;
+            scene.add(directionalLight);
+        }
+        function createSedan(x, y, z, rotationY = 0) {
+    const carGroup = new THREE.Group();
+    carGroup.position.set(x, y, z);
+    carGroup.rotation.y = rotationY; // Apply rotation on the Y axis
+
+    const bodyMaterial = new THREE.MeshPhongMaterial({ color: Math.random() * 0xffffff });
+    const wheelMaterial = new THREE.MeshPhongMaterial({ color: 0x333333 });
+
+    const body = new THREE.Mesh(new THREE.BoxGeometry(4, 1.2, 2), bodyMaterial);
+    const roof = new THREE.Mesh(new THREE.BoxGeometry(2.5, 0.7, 2), bodyMaterial);
+    roof.position.set(0, 0.85, 0);
+    body.add(roof);
+
+    const wheelPositions = [
+        [-1.5, -0.5, 0.9],
+        [1.5, -0.5, 0.9],
+        [-1.5, -0.5, -0.9],
+        [1.5, -0.5, -0.9]
+    ];
+    wheelPositions.forEach(([wx, wy, wz]) => {
+        const wheel = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.5, 0.5, 32), wheelMaterial);
+        wheel.rotation.x = Math.PI / 2; // Rotate wheels correctly on x-axis
+        wheel.position.set(wx, wy + 0.5, wz);
+        body.add(wheel);
+    });
+
+    carGroup.add(body);
+    scene.add(carGroup);
+}
+
+function createSUV(x, y, z, rotationY = 0) {
+    const carGroup = new THREE.Group();
+    carGroup.position.set(x, y, z);
+    carGroup.rotation.y = rotationY;
+
+    const bodyMaterial = new THREE.MeshPhongMaterial({ color: 0xffffff });
+    const wheelMaterial = new THREE.MeshPhongMaterial({ color: 0x333333 });
+
+    const body = new THREE.Mesh(new THREE.BoxGeometry(4.5, 1.8, 2.2), bodyMaterial);
+    const roof = new THREE.Mesh(new THREE.BoxGeometry(3, 1.8, 2.2), bodyMaterial);
+    roof.position.set(0, 1, 0);
+    body.add(roof);
+
+    const wheelPositions = [
+        [-1.8, -0.8, 1.1],
+        [1.8, -0.8, 1.1],
+        [-1.8, -0.8, -1.1],
+        [1.8, -0.8, -1.1]
+    ];
+    wheelPositions.forEach(([wx, wy, wz]) => {
+        const wheel = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.5, 0.5, 32), wheelMaterial);
+        wheel.rotation.x = Math.PI / 2;
+        wheel.position.set(wx, wy + 0.5, wz);
+        body.add(wheel);
+    });
+
+    carGroup.add(body);
+    scene.add(carGroup);
+}
+
+function createLightweightVehicle(x, y, z, rotationY = 0) {
+    const carGroup = new THREE.Group();
+    carGroup.position.set(x, y, z);
+    carGroup.rotation.y = rotationY;
+
+    const bodyMaterial = new THREE.MeshPhongMaterial({ color: 0x000000 });
+    const wheelMaterial = new THREE.MeshPhongMaterial({ color: 0x333333 });
+
+    const body = new THREE.Mesh(new THREE.BoxGeometry(3, 1, 1.5), bodyMaterial);
+    const roof = new THREE.Mesh(new THREE.BoxGeometry(2, 0.5, 1.5), bodyMaterial);
+    roof.position.set(0, 0.65, 0);
+    body.add(roof);
+
+    const wheelPositions = [
+        [-1.2, -0.5, 0.75],
+        [1.2, -0.5, 0.75],
+        [-1.2, -0.5, -0.75],
+        [1.2, -0.5, -0.75]
+    ];
+    wheelPositions.forEach(([wx, wy, wz]) => {
+        const wheel = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.5, 0.5, 32), wheelMaterial);
+        wheel.rotation.x = Math.PI / 2;
+        wheel.position.set(wx, wy + 0.5, wz);
+        body.add(wheel);
+    });
+
+    carGroup.add(body);
+    scene.add(carGroup);
+}
+
+// Place vehicles in the scene
+createSedan(-20, 1, 80);
+createSedan(-20, 1, 85);
+createSedan(-20, 1, 90);
+createSedan(-20, 1, 95);
+createSUV(-20, 1, 100);
+createSUV(-20, 1, 105);
+createLightweightVehicle(-20, 1, 110);
+createLightweightVehicle(-20, 1, 115);
+
+createSedan(-30, 1, 80, Math.PI / 2);
+createSedan(-30, 1, 85, Math.PI / 2);
+createSedan(-30, 1, 90, Math.PI / 2);
+createSedan(-30, 1, 95, Math.PI / 2);
+createSUV(-30, 1, 100, Math.PI / 2);
+createSUV(-30, 1, 105, Math.PI / 2);
+createLightweightVehicle(-30, 1, 110, Math.PI / 2);
+createLightweightVehicle(-30, 1, 115, Math.PI / 2);
+
+createSedan(-35, 1, 80, Math.PI / 2);
+createSedan(-35, 1, 85, Math.PI / 2);
+createSedan(-35, 1, 90, Math.PI / 2);
+createSedan(-35, 1, 95, Math.PI / 2);
+createSUV(-35, 1, 100, Math.PI / 2);
+createSUV(-35, 1, 105, Math.PI / 2);
+createLightweightVehicle(-35, 1, 110, Math.PI / 2);
+createLightweightVehicle(-35, 1, 115, Math.PI / 2);
+
+createSedan(-45, 1, 55, Math.PI / 2);
+createSedan(-40, 1, 55, Math.PI / 2);
+
+createSedan(-35, 1, 55, Math.PI / 2);
+createSedan(-30, 1, 55, Math.PI / 2);
+createSedan(-25, 1, 55, Math.PI / 2);
+createSUV(-20, 1, 55, Math.PI / 2);
+createSUV(-15, 1, 55, Math.PI / 2);
+createLightweightVehicle(-10, 1, 55, Math.PI / 2);
+createLightweightVehicle(-5, 1, 55, Math.PI / 2);
+
+        function animate() {
+            requestAnimationFrame(animate);
+            orbitControls.update();
+            animateMagpies();
+            renderer.render(scene, camera);
+        }
+
+        // Initialize Scene
+        setupLights();
+        createBuilding();
+        createOutdoorElements();
+        animate();
+    </script>
+</body>
+</html>
